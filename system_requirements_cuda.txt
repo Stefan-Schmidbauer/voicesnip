@@ -1,0 +1,21 @@
+# VoiceSnip System Requirements - CUDA Profile
+# For Debian/Ubuntu systems (apt packages)
+
+# Include all basis requirements
+python3
+python3-pip
+python3-venv
+python3-dev
+python3-tk
+libportaudio2
+portaudio19-dev
+xclip
+xdotool
+git
+pkg-config
+
+# NVIDIA GPU drivers
+# NOTE: nvidia-cudnn and nvidia-cublas are installed via pip (nvidia-cudnn-cu12, nvidia-cublas-cu12)
+# User must have nvidia-driver installed (verify with nvidia-smi)
+# Install with: sudo apt install nvidia-driver-XXX
+# Check available versions: apt search nvidia-driver

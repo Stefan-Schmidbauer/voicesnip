@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 144" width="144" height="144">
+  <defs>
+    <linearGradient id="blueGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#42A5F5;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1976D2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect x="0" y="0" width="144" height="144" fill="#1E1E1E" rx="4"/>
+  
+  <!-- "voice" text - lighter weight -->
+  <text x="72" y="50" 
+        font-family="Arial, Helvetica, sans-serif" 
+        font-size="32" 
+        font-weight="400"
+        fill="url(#blueGradient)" 
+        text-anchor="middle"
+        letter-spacing="1">voice</text>
+  
+  <!-- Waveform divider -->
+  <g transform="translate(72, 68)">
+    <!-- Sine wave path -->
+    <path d="M -55,0 Q -48,-6 -41,0 T -27,0 T -13,0"
+          stroke="#FF6B6B"
+          stroke-width="3"
+          fill="none"
+          stroke-linecap="round"/>
+    <path d="M 13,0 Q 20,-6 27,0 T 41,0 T 55,0"
+          stroke="#FF6B6B"
+          stroke-width="3"
+          fill="none"
+          stroke-linecap="round"/>
+
+    <!-- Center circles representing waveform amplitude -->
+    <circle cx="-6" cy="0" r="2.5" fill="#FF6B6B"/>
+    <circle cx="0" cy="-4" r="3" fill="#FF6B6B"/>
+    <circle cx="6" cy="0" r="2.5" fill="#FF6B6B"/>
+  </g>
+  
+  <!-- "snip" text - heavier weight -->
+  <text x="72" y="104" 
+        font-family="Arial, Helvetica, sans-serif" 
+        font-size="36" 
+        font-weight="700"
+        fill="#FFFFFF" 
+        text-anchor="middle"
+        letter-spacing="2">snip</text>
+</svg>

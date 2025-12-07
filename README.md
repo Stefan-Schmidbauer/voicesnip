@@ -178,6 +178,11 @@ Available models are predefined in the application:
 - **GPU VRAM**: Memory usage measured on RTX 4050 laptop GPU (only relevant when using GPU provider)
 - The model is automatically unloaded from VRAM when you click "Stop" or "Quit"
 
+## Project Structure
+
+- **`assets/icons/actions/`** - SVG icons for external integrations (e.g., custom launchers, UI buttons)
+- **`assets/icons/app/`** - Application icon files
+
 ## File Locations
 
 VoiceSnip creates and uses the following files and directories:
@@ -212,7 +217,7 @@ VoiceSnip integrates with these excellent services and technologies:
 - **Deepgram** - cloud speech recognition API
 - **NVIDIA CUDA** - GPU acceleration
 
-This is an independent project and not affiliated with these companies.
+This is an independent project and not affiliated with OpenAI, Deepgram, NVIDIA, Elgato, or Anthropic.
 
 ## Contributing
 

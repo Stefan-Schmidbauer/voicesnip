@@ -634,7 +634,7 @@ class VoiceSnipGUI:
 
         try:
             # Load PNG logo
-            png_path = os.path.join(os.path.dirname(__file__), "voicesnip_icon.png")
+            png_path = os.path.join(os.path.dirname(__file__), "assets", "icons", "app", "voicesnip_icon.png")
             if os.path.exists(png_path):
                 image = Image.open(png_path)
                 photo = ImageTk.PhotoImage(image)

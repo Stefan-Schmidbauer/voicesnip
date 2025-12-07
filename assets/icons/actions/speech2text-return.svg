@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="72"
+   height="72"
+   viewBox="0 0 72 72"
+   version="1.1"
+   id="svg390"
+   sodipodi:docname="speech2text-return.svg"
+   inkscape:version="1.2.2 (b0a8486541, 2022-12-01)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs394" />
+  <sodipodi:namedview
+     id="namedview392"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     showgrid="false"
+     inkscape:zoom="9.2709556"
+     inkscape:cx="25.887299"
+     inkscape:cy="34.678194"
+     inkscape:window-width="1832"
+     inkscape:window-height="1177"
+     inkscape:window-x="2738"
+     inkscape:window-y="288"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="svg390" />
+  <!-- Dunklerer blauer Kreis-Hintergrund -->
+  <circle
+     cx="36"
+     cy="36"
+     r="34"
+     fill="#1D4ED8"
+     id="circle372" />
+  <!-- Sinuswelle (kompakter) -->
+  <!-- Pfeil -->
+  <!-- "Aa" Text -->
+  <g
+     id="g134"
+     transform="translate(0,7.4604492)">
+    <path
+       d="m 8,28 q 5,-10 10,0 5,10 10,0"
+       stroke="#ffffff"
+       stroke-width="2.5"
+       stroke-linecap="round"
+       fill="none"
+       id="path374" />
+    <g
+       id="g434"
+       transform="translate(1)">
+      <path
+         d="m 32,28 h 6"
+         stroke="#ffffff"
+         stroke-width="2.5"
+         stroke-linecap="round"
+         fill="none"
+         id="path376" />
+      <path
+         d="m 35,25 3,3 -3,3"
+         stroke="#ffffff"
+         stroke-width="2.5"
+         stroke-linecap="round"
+         stroke-linejoin="round"
+         fill="none"
+         id="path378" />
+    </g>
+    <text
+       x="40"
+       y="36"
+       font-family="Arial, sans-serif"
+       font-size="22px"
+       font-weight="600"
+       letter-spacing="-1"
+       fill="#ffffff"
+       id="text380">Aa</text>
+  </g>
+  <!-- Return-Symbol (zentriert, ohne oberen Balken) -->
+  <g
+     id="g440"
+     transform="translate(-1,4)">
+    <g
+       transform="translate(26,38)"
+       id="g388">
+      <!-- Vertikale Linie nach unten -->
+      <path
+         d="m 18,6 v 4"
+         stroke="#ffffff"
+         stroke-width="2.5"
+         stroke-linecap="round"
+         fill="none"
+         id="path382"
+         sodipodi:nodetypes="cc" />
+      <!-- Horizontale Linie nach links -->
+      <path
+         d="M 18,10 H 4"
+         stroke="#ffffff"
+         stroke-width="2.5"
+         stroke-linecap="round"
+         fill="none"
+         id="path384" />
+      <!-- Pfeilspitze nach links -->
+      <path
+         d="m 7,7 -3,3 3,3"
+         stroke="#ffffff"
+         stroke-width="2.5"
+         stroke-linecap="round"
+         stroke-linejoin="round"
+         fill="none"
+         id="path386" />
+    </g>
+  </g>
+</svg>

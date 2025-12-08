@@ -98,6 +98,19 @@ KEY_MAP = {
     'tab': keyboard.Key.tab,
     'esc': keyboard.Key.esc,
     'escape': keyboard.Key.esc,
+    # Function keys
+    'f1': keyboard.Key.f1,
+    'f2': keyboard.Key.f2,
+    'f3': keyboard.Key.f3,
+    'f4': keyboard.Key.f4,
+    'f5': keyboard.Key.f5,
+    'f6': keyboard.Key.f6,
+    'f7': keyboard.Key.f7,
+    'f8': keyboard.Key.f8,
+    'f9': keyboard.Key.f9,
+    'f10': keyboard.Key.f10,
+    'f11': keyboard.Key.f11,
+    'f12': keyboard.Key.f12,
 }
 
 KEY_NAME_MAP = {
@@ -117,6 +130,19 @@ KEY_NAME_MAP = {
     keyboard.Key.enter: 'enter',
     keyboard.Key.tab: 'tab',
     keyboard.Key.esc: 'esc',
+    # Function keys
+    keyboard.Key.f1: 'f1',
+    keyboard.Key.f2: 'f2',
+    keyboard.Key.f3: 'f3',
+    keyboard.Key.f4: 'f4',
+    keyboard.Key.f5: 'f5',
+    keyboard.Key.f6: 'f6',
+    keyboard.Key.f7: 'f7',
+    keyboard.Key.f8: 'f8',
+    keyboard.Key.f9: 'f9',
+    keyboard.Key.f10: 'f10',
+    keyboard.Key.f11: 'f11',
+    keyboard.Key.f12: 'f12',
 }
 
 # Language mapping constants
@@ -490,8 +516,23 @@ class VoiceSnipCore:
 
             # Check if trigger key is pressed
             trigger_key = self.hotkey_config['trigger_key']
-            if trigger_key not in self.pressed_keys:
+
+            # For KeyCode objects (character keys), compare by char value (case-insensitive)
+            if isinstance(trigger_key, keyboard.KeyCode):
+                # Get the expected char value (lowercase)
+                expected_char = trigger_key.char.lower() if trigger_key.char else None
+
+                # Check if any pressed key has the same char value
+                for pressed_key in self.pressed_keys:
+                    if isinstance(pressed_key, keyboard.KeyCode) and pressed_key.char:
+                        # Compare case-insensitive
+                        if pressed_key.char.lower() == expected_char:
+                            return True
                 return False
+            else:
+                # For special keys (Key.space, Key.ctrl, etc.), use direct comparison
+                if trigger_key not in self.pressed_keys:
+                    return False
 
             return True
 
@@ -522,7 +563,17 @@ class VoiceSnipCore:
             trigger_key = self.hotkey_config['trigger_key']
             all_hotkey_keys = set(self.hotkey_config['modifiers']) | {trigger_key}
 
+            # Check if the released key is part of the hotkey
+            is_hotkey_part = False
             if normalized_key in all_hotkey_keys or key in all_hotkey_keys:
+                is_hotkey_part = True
+            # For KeyCode objects, compare by char value (case-insensitive)
+            elif isinstance(trigger_key, keyboard.KeyCode) and isinstance(key, keyboard.KeyCode):
+                if trigger_key.char and key.char:
+                    if key.char.lower() == trigger_key.char.lower():
+                        is_hotkey_part = True
+
+            if is_hotkey_part:
                 self.stop_recording()
 
 

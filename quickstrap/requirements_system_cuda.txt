@@ -9,7 +9,6 @@ python3-dev
 python3-tk
 libportaudio2
 portaudio19-dev
-xclip
 xdotool
 git
 pkg-config

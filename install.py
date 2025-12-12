@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-Generic Profile-Based Installation Manager
+Quickstrap - Generic Profile-Based Installation Manager
 
-This script manages installation with different profiles defined in installation_profiles.ini.
+This script manages installation with different profiles defined in quickstrap/installation_profiles.ini.
 The profile configuration determines available features, requirements, and installation options.
 """
 
 import sys
+import os
 import subprocess
 import argparse
 import shutil
@@ -55,7 +56,7 @@ def print_info(text: str):
     print(f"{Colors.OKCYAN}ℹ {text}{Colors.ENDC}")
 
 
-def read_profiles(profile_file: str = 'installation_profiles.ini') -> Tuple[Dict, Dict]:
+def read_profiles(profile_file: str = 'quickstrap/installation_profiles.ini') -> Tuple[Dict, Dict]:
     """Read and parse installation profiles.
 
     Returns:
@@ -75,10 +76,6 @@ def read_profiles(profile_file: str = 'installation_profiles.ini') -> Tuple[Dict
         if section.startswith('profile:'):
             profile_name = section.split(':', 1)[1]
             profiles[profile_name] = dict(config[section])
-
-            # Add metadata fields
-            if 'metadata' in config:
-                profiles[profile_name]['config_version'] = config['metadata'].get('config_version', '1')
 
     # Extract metadata
     metadata = {}
@@ -139,22 +136,6 @@ def check_system_packages(package_file: str) -> Tuple[List[str], List[str]]:
             missing.append(package)
 
     return installed, missing
-
-
-def check_installed_program(program: str) -> bool:
-    """Check if a program is installed and available.
-
-    Args:
-        program: Program name/command to check
-
-    Returns:
-        True if program exists in PATH, False otherwise
-
-    Note:
-        This function uses shutil.which() to check if the program exists in PATH
-        without actually executing it.
-    """
-    return shutil.which(program) is not None
 
 
 def setup_venv(force: bool = False) -> Path:
@@ -272,13 +253,118 @@ def install_python_packages(venv_path: Path, requirements_file: str) -> bool:
     return True
 
 
-def write_installation_config(profile_name: str, features: str, config_version: str, config_dir_name: str) -> Path:
+def validate_profile_files(profile: Dict) -> List[str]:
+    """Validate that all files referenced in the profile exist.
+
+    Args:
+        profile: Profile configuration dict
+
+    Returns:
+        List of missing files with their context (empty if all files exist)
+    """
+    missing = []
+
+    # Check python requirements
+    if 'python_requirements' in profile:
+        req_file = profile['python_requirements']
+        if not Path(req_file).exists():
+            missing.append(f"{req_file} (python_requirements)")
+
+    # Check system requirements
+    if 'system_requirements' in profile:
+        req_file = profile['system_requirements']
+        if not Path(req_file).exists():
+            missing.append(f"{req_file} (system_requirements)")
+
+    # Check post_install_scripts
+    scripts = profile.get('post_install_scripts', '').strip()
+    if scripts:
+        script_list = [s.strip() for s in scripts.split(',') if s.strip()]
+        for script_path in script_list:
+            if not Path(script_path).exists():
+                missing.append(f"{script_path} (post_install_scripts)")
+
+    # Check pre_install_scripts
+    scripts_pre = profile.get('pre_install_scripts', '').strip()
+    if scripts_pre:
+        script_list = [s.strip() for s in scripts_pre.split(',') if s.strip()]
+        for script_path in script_list:
+            if not Path(script_path).exists():
+                missing.append(f"{script_path} (pre_install_scripts)")
+
+    return missing
+
+
+def run_pre_install_scripts(scripts: str, profile_name: str) -> bool:
+    """Run pre-installation scripts.
+
+    Args:
+        scripts: Comma-separated list of scripts to run
+        profile_name: Name of the profile being installed
+
+    Returns:
+        True if scripts passed or user chose to continue, False to abort
+    """
+    script_list = [s.strip() for s in scripts.split(',') if s.strip()]
+
+    if not script_list:
+        return True
+
+    print_header("Step 2: Pre-Installation Scripts")
+
+    failed_scripts = []
+
+    for script_path in script_list:
+        if not Path(script_path).exists():
+            print_warning(f"Pre-install script not found: {script_path}")
+            continue
+
+        print_info(f"Running pre-install script: {script_path}")
+
+        result = subprocess.run(
+            ['bash', script_path],
+            capture_output=True,
+            text=True
+        )
+
+        # Display output
+        if result.stdout:
+            print(result.stdout)
+        if result.stderr:
+            print(result.stderr, file=sys.stderr)
+
+        if result.returncode != 0:
+            print_error(f"Pre-install script failed: {script_path}")
+            failed_scripts.append(script_path)
+
+    if failed_scripts:
+        print()
+        print_warning("Warning: Pre-installation scripts failed")
+        print()
+
+        try:
+            response = input("Continue anyway? [y/N]: ").strip().lower()
+            if response == 'y':
+                print_info("Continuing installation despite failed scripts...")
+                return True
+            else:
+                print_info("Installation aborted by user")
+                return False
+        except (KeyboardInterrupt, EOFError):
+            print()
+            print_info("Installation aborted by user")
+            return False
+    else:
+        print_success("All pre-install scripts completed successfully")
+        return True
+
+
+def write_installation_config(profile_name: str, features: str, config_dir_name: str) -> Path:
     """Write installation config to ~/.config/{config_dir_name}/
 
     Args:
         profile_name: Name of installed profile
         features: Comma-separated feature list
-        config_version: Config format version
         config_dir_name: Name of the config directory (from metadata)
 
     Returns:
@@ -291,7 +377,6 @@ def write_installation_config(profile_name: str, features: str, config_version: 
 
     config = ConfigParser()
     config['installation'] = {
-        'config_version': config_version,
         'profile': profile_name,
         'features': features,
         'install_date': datetime.now().isoformat(),
@@ -408,6 +493,19 @@ Examples:
     print_info(f"Features: {profile['features']}")
     print()
 
+    # Validate profile files exist
+    missing_files = validate_profile_files(profile)
+    if missing_files:
+        print_error("Profile validation failed!")
+        print()
+        print_error("Missing files:")
+        for missing_file in missing_files:
+            print(f"  - {missing_file}")
+        print()
+        print_info("Please check your profile configuration in:")
+        print(f"  quickstrap/installation_profiles.ini")
+        sys.exit(1)
+
     # Dry run mode
     if args.dry_run:
         print_header("Dry Run Mode - No Changes Will Be Made")
@@ -444,45 +542,74 @@ Examples:
 
     print_success("All system packages are installed")
 
-    # Check for required programs (generic check)
-    if 'check_installed_program' in profile:
-        program = profile['check_installed_program']
-        print()
-        print_info(f"Checking for required program: {program}...")
-        is_installed = check_installed_program(program)
-
-        if not is_installed:
-            # Use custom error message if provided, otherwise generic
-            error_msg = profile.get('check_error_message', f"Required program '{program}' not found")
-            print_error(error_msg)
-
-            # Show installation hint if provided
-            if 'check_install_hint' in profile:
-                print_info("Please install it first:")
-                print(f"  {Colors.BOLD}{profile['check_install_hint']}{Colors.ENDC}")
-
+    # Run pre-install scripts if defined
+    scripts_pre = profile.get('pre_install_scripts', '').strip()
+    if scripts_pre:
+        should_continue = run_pre_install_scripts(scripts_pre, profile_name)
+        if not should_continue:
             sys.exit(1)
-
-        print_success(f"Program '{program}' found")
+        step_offset = 1  # Pre-install scripts used Step 2
+    else:
+        step_offset = 0  # No pre-install scripts, so venv is Step 2
 
     # Setup virtual environment
-    print_header("Step 2: Virtual Environment Setup")
+    print_header(f"Step {2 + step_offset}: Virtual Environment Setup")
     venv_path = setup_venv(force=args.rebuild_venv)
 
     # Install Python packages
-    print_header("Step 3: Python Package Installation")
+    print_header(f"Step {3 + step_offset}: Python Package Installation")
     success = install_python_packages(venv_path, profile['python_requirements'])
 
     if not success:
         print_error("Installation failed")
         sys.exit(1)
 
+    # Run post-install scripts if defined
+    scripts = profile.get('post_install_scripts', '').strip()
+    if scripts:
+        print_header(f"Step {4 + step_offset}: Post-Installation Scripts")
+        script_list = [s.strip() for s in scripts.split(',') if s.strip()]
+
+        for script_path in script_list:
+            if not Path(script_path).exists():
+                print_warning(f"Post-install script not found: {script_path}")
+                continue
+
+            print_info(f"Running post-install script: {script_path}")
+
+            # Prepare environment with venv activation and Quickstrap metadata
+            env = os.environ.copy()
+            env['VIRTUAL_ENV'] = str(venv_path)
+            env['PATH'] = f"{venv_path / 'bin'}:{env['PATH']}"
+            env['QUICKSTRAP_APP_NAME'] = app_name
+            env['QUICKSTRAP_CONFIG_DIR'] = config_dir_name
+
+            result = subprocess.run(
+                ['bash', script_path],
+                env=env,
+                capture_output=True,
+                text=True
+            )
+
+            # Display output
+            if result.stdout:
+                print(result.stdout)
+            if result.stderr:
+                print(result.stderr, file=sys.stderr)
+
+            if result.returncode != 0:
+                print_error(f"Post-install script failed: {script_path}")
+                sys.exit(1)
+
+        print_success("All post-install scripts completed")
+
     # Write installation config
-    print_header("Step 4: Configuration")
+    # Calculate final step number: 1 (sys) + pre_scripts + venv + python + post_scripts + config
+    final_step = 4 + step_offset + (1 if scripts else 0)
+    print_header(f"Step {final_step}: Configuration")
     config_path = write_installation_config(
         profile_name=profile_name,
         features=profile['features'],
-        config_version=profile['config_version'],
         config_dir_name=config_dir_name
     )
 

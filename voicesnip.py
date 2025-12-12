@@ -395,52 +395,22 @@ class VoiceSnipCore:
             self.processing_thread.join(timeout=2.0)
 
     def insert_text(self, text):
-        """Insert text into active application using xclip + xdotool"""
+        """Insert text into active application without using clipboard"""
         try:
-            # Copy text to both clipboard and primary selection
-            # Clipboard for Ctrl+V / Ctrl+Shift+V
-            with subprocess.Popen(
-                ['xclip', '-selection', 'clipboard'],
-                stdin=subprocess.PIPE
-            ) as process:
-                process.communicate(text.encode('utf-8'), timeout=2.0)
-
-            # Primary selection for middle-click paste
-            with subprocess.Popen(
-                ['xclip', '-selection', 'primary'],
-                stdin=subprocess.PIPE
-            ) as process:
-                process.communicate(text.encode('utf-8'), timeout=2.0)
-
-            # Small delay to ensure clipboard is set
-            time.sleep(0.1)
-
-            # Detect if active window is a terminal
-            is_terminal = self.is_terminal_window()
-
-            # Use appropriate paste method
-            if is_terminal:
-                # For terminals: type text directly (more reliable)
-                # xdotool type simulates typing each character
-                subprocess.run(
-                    ['xdotool', 'type', '--clearmodifiers', '--', text],
-                    check=True,
-                    timeout=5.0
-                )
-            else:
-                # For regular applications: use Ctrl+V (faster)
-                subprocess.run(
-                    ['xdotool', 'key', '--clearmodifiers', 'ctrl+v'],
-                    check=True,
-                    timeout=2.0
-                )
+            # Use xdotool type for all applications to avoid clipboard entirely
+            # This preserves the user's clipboard and middle-click selection
+            subprocess.run(
+                ['xdotool', 'type', '--clearmodifiers', '--', text],
+                check=True,
+                timeout=10.0  # Longer timeout for long text
+            )
 
         except subprocess.TimeoutExpired:
             print("Error: Clipboard operation timed out")
         except subprocess.CalledProcessError as e:
             print(f"Error inserting text: {e}")
         except FileNotFoundError:
-            print("xclip or xdotool not found. Please install: sudo apt install xclip xdotool")
+            print("xdotool not found. Please install: sudo apt install xdotool")
 
     def is_terminal_window(self):
         """Detect if the active window is a terminal emulator"""

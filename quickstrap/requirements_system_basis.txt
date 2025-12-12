@@ -12,8 +12,7 @@ python3-tk
 libportaudio2
 portaudio19-dev
 
-# X11 integration (text insertion)
-xclip
+# X11 integration (text insertion via keyboard simulation)
 xdotool
 
 # Optional but recommended

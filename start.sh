@@ -60,6 +60,6 @@ fi
 # Activate virtual environment
 source venv/bin/activate
 
-# Start application
+# Start application with all provided arguments
 echo "Starting $APP_NAME..."
-eval "$START_CMD"
+eval "$START_CMD" "$@"

@@ -23,6 +23,8 @@ Quickstrap provides a simple, reusable installation system that handles both Pyt
    ```bash
    git clone https://github.com/Stefan-Schmidbauer/quickstrap.git my-project
    cd my-project
+   # Rename Quickstrap README to make room for your project's README
+   mv README.md README.quickstrap.md
    ```
 
 2. **Configure your application:**
@@ -58,6 +60,7 @@ Quickstrap provides a simple, reusable installation system that handles both Pyt
    git clone https://github.com/Stefan-Schmidbauer/quickstrap.git quickstrap-temp
    cp quickstrap-temp/install.py .
    cp quickstrap-temp/start.sh .
+   cp quickstrap-temp/README.md README.quickstrap.md  # Keep Quickstrap docs as reference
    cp -r quickstrap-temp/quickstrap .
    rm -rf quickstrap-temp
    ```
@@ -263,10 +266,12 @@ Installs the specified profile directly.
 ### Rebuild Virtual Environment
 
 ```bash
+./install.py --rebuild-venv
+# Or with specific profile:
 ./install.py --profile standard --rebuild-venv
 ```
 
-Recreates the virtual environment from scratch.
+Deletes and recreates the virtual environment from scratch.
 
 ### Dry Run
 
@@ -283,6 +288,20 @@ Shows what would be installed without making changes.
 ```
 
 Activates the virtual environment and starts your application.
+
+### Start Application with Parameters
+
+```bash
+./start.sh [arguments...]
+```
+
+All arguments are passed to your application. Examples:
+
+```bash
+./start.sh --help              # Show application help
+./start.sh --config production # Start with production config
+./start.sh process --verbose   # Run command with options
+```
 
 ## Configuration Reference
 
@@ -385,34 +404,45 @@ Quickstrap provides all of this in a simple, reusable framework that requires no
 
 ## Troubleshooting
 
-### File Permissions
-
-If newly created files (e.g., requirements files, config files) have restricted permissions like `600` (`-rw-------`) instead of the expected `644` (`-rw-r--r--`), this is controlled by your system's umask setting, not by Quickstrap.
-
-**To check your umask:**
+### Scripts Not Executable
 
 ```bash
-umask
+chmod +x install.py start.sh
+chmod +x quickstrap/scripts/*.sh
 ```
 
-**Common values:**
-
-- `0022` - Creates files as `644` (owner: rw, group/others: r)
-- `0077` - Creates files as `600` (owner: rw, group/others: none)
-
-**To change temporarily:**
+### Virtual Environment Issues
 
 ```bash
-umask 0022
+# Rebuild the virtual environment
+./install.py --rebuild-venv
+```
+
+### Missing System Packages
+
+```bash
+sudo apt install <package-name>
 ./install.py
 ```
 
-**To change permanently:**
-Add to your `~/.bashrc` or `~/.profile`:
+## FAQ
+
+### Supported Platforms
+
+Quickstrap is designed for **Debian/Ubuntu-based Linux systems** (uses `apt`/`dpkg`).
+
+### Adding Python Packages
+
+Edit `quickstrap/requirements_python.txt` and rebuild:
 
 ```bash
-umask 0022
+./install.py --rebuild-venv
 ```
+
+### Pre-Install vs Post-Install Scripts
+
+- **Pre-install**: Run before venv creation (e.g., check GPU drivers)
+- **Post-install**: Run after packages installed (e.g., init database)
 
 ## License
 
@@ -422,4 +452,4 @@ Copyright (c) 2025 Stefan Schmidbauer
 
 ## Contributing
 
-Contributions are welcome! Feel free to open issues or submit pull requests to improve Quickstrap.
+Contributions welcome! Open issues or submit pull requests on GitHub.

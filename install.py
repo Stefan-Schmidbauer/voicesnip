@@ -442,8 +442,8 @@ def main():
 Examples:
   ./install.py                              # Interactive installation
   ./install.py --profile {list(profiles.keys())[0] if profiles else 'profile'}   # Install profile directly
-  ./install.py --profile {list(profiles.keys())[1] if len(profiles) > 1 else 'profile'}   # Switch to another profile
-  ./install.py --profile {list(profiles.keys())[0] if profiles else 'profile'} --rebuild-venv # Rebuild venv from scratch
+  ./install.py --rebuild-venv               # Rebuild venv, then interactive menu
+  ./install.py --profile {list(profiles.keys())[0] if profiles else 'profile'} --rebuild-venv # Rebuild venv for specific profile
   ./install.py --dry-run                    # Show what would be installed
         """
     )
@@ -455,7 +455,7 @@ Examples:
     parser.add_argument(
         '--rebuild-venv',
         action='store_true',
-        help='Rebuild virtual environment from scratch (requires --profile)'
+        help='Rebuild virtual environment from scratch'
     )
     parser.add_argument(
         '--dry-run',
@@ -464,10 +464,6 @@ Examples:
     )
 
     args = parser.parse_args()
-
-    # Validate --rebuild-venv requires --profile
-    if args.rebuild_venv and not args.profile:
-        parser.error("--rebuild-venv requires --profile to be specified")
 
     # Print header
     print_header(f"{app_name} Installation")

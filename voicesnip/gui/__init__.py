@@ -1,0 +1,3 @@
+"""
+VoiceSnip GUI components
+"""

@@ -100,7 +100,7 @@ DEEPGRAM_ENDPOINT=https://api.eu.deepgram.com/v1/listen
 ### 4. Start VoiceSnip
 
 ```bash
-./voicesnip.sh
+./start.sh
 ```
 
 The application will start with providers available based on your installation profile!
@@ -134,7 +134,7 @@ If you want to rebuild the virtual environment from scratch (clean install):
 **Recommended**: Use the provided shell script:
 
 ```bash
-./voicesnip.sh
+./start.sh
 ```
 
 ### How to Use
@@ -180,8 +180,34 @@ Available models are predefined in the application:
 
 ## Project Structure
 
-- **`assets/icons/actions/`** - SVG icons for external integrations (e.g., custom launchers, UI buttons)
-- **`assets/icons/app/`** - Application icon files
+```
+voicesnip/
+├── main.py                    # Application entry point
+├── start.sh                   # Startup script (activates venv and runs main.py)
+├── install.py                 # Installation script
+├── voicesnip/                 # Main application package
+│   ├── constants.py           # Application constants
+│   ├── core.py                # Core orchestration logic
+│   ├── audio_recorder.py      # Audio recording functionality
+│   ├── hotkey_manager.py      # Hotkey management
+│   ├── text_inserter.py       # Text insertion (xdotool)
+│   └── gui/                   # GUI components
+│       ├── main_window.py     # Main application window
+│       ├── config_manager.py  # Configuration loading/saving
+│       ├── device_manager.py  # Audio device management
+│       └── dialogs.py         # About and info dialogs
+├── providers/                 # STT provider implementations
+│   ├── base.py                # Base provider class
+│   ├── whisper.py             # Whisper (local) provider
+│   └── deepgram.py            # Deepgram (cloud) provider
+├── assets/                    # Application assets
+│   └── icons/
+│       ├── actions/           # SVG icons for external integrations
+│       └── app/               # Application icon files
+└── quickstrap/                # Installation profiles and scripts
+    ├── installation_profiles.ini
+    └── scripts/
+```
 
 ## File Locations
 

@@ -1,8 +1,8 @@
 """
 VoiceSnip Constants
 
-All application-wide constants including audio configuration,
-keyboard mappings, and terminal detection.
+All application-wide constants including audio configuration
+and keyboard mappings.
 """
 
 from pathlib import Path
@@ -22,31 +22,6 @@ CONFIG_FILE = CONFIG_DIR / 'config.json'
 
 # GitHub URL
 GITHUB_URL = "https://github.com/Stefan-Schmidbauer/voicesnip"
-
-# Terminal detection keywords (frozenset for O(1) lookup)
-TERMINAL_KEYWORDS = frozenset([
-    'terminal',
-    'konsole',
-    'gnome-terminal',
-    'xterm',
-    'rxvt',
-    'urxvt',
-    'kitty',
-    'alacritty',
-    'terminator',
-    'tilix',
-    'terminology',
-    'guake',
-    'yakuake',
-    'qterminal',
-    'lxterminal',
-    'mate-terminal',
-    'xfce4-terminal',
-    'wezterm',
-    'st',  # simple terminal
-    'foot',
-    'contour',
-])
 
 # Key mapping constants for hotkey parsing
 KEY_MAP = {

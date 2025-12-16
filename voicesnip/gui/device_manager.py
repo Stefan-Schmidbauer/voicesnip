@@ -4,7 +4,6 @@ GUI Device Manager
 Handles audio device detection, filtering, and display name formatting.
 """
 
-import re
 import sounddevice as sd
 
 from ..constants import COMMON_SAMPLE_RATES

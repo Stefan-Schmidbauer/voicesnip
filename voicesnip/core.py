@@ -5,7 +5,6 @@ Core functionality orchestrating audio recording, transcription,
 and hotkey management.
 """
 
-import os
 import threading
 import sounddevice as sd
 

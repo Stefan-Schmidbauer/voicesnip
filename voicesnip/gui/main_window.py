@@ -163,6 +163,11 @@ class VoiceSnipGUI:
                 providers.append(display_name)
                 self.provider_display_to_name[display_name] = "whisper-local-gpu"
 
+        if 'faster-whisper-server' in self.features:
+            display_name = "Faster Whisper Server"
+            providers.append(display_name)
+            self.provider_display_to_name[display_name] = "faster-whisper-server"
+
         if 'deepgram' in self.features:
             display_name = "Deepgram Cloud (API Key required)"
             providers.append(display_name)
@@ -319,7 +324,13 @@ class VoiceSnipGUI:
             return
 
         provider_name = self.provider_display_to_name[selected_display]
-        base_provider = 'whisper' if 'whisper' in provider_name else 'deepgram'
+        # Determine base provider for config storage
+        if 'whisper' in provider_name and 'server' not in provider_name:
+            base_provider = 'whisper'
+        elif 'faster-whisper-server' in provider_name:
+            base_provider = 'faster-whisper-server'
+        else:
+            base_provider = 'deepgram'
 
         try:
             from providers import create_provider
@@ -327,12 +338,18 @@ class VoiceSnipGUI:
             models = provider.get_available_models()
             self.model_combo['values'] = models
 
-            saved_model = self.config.get('provider', {}).get(base_provider, {}).get('model')
+            # Disable model dropdown if no models available (e.g. for server-based providers)
+            if not models:
+                self.model_combo.set("N/A (configured externally)")
+                self.model_combo.config(state='disabled')
+            else:
+                self.model_combo.config(state='readonly')
+                saved_model = self.config.get('provider', {}).get(base_provider, {}).get('model')
 
-            if saved_model and saved_model in models:
-                self.model_combo.set(saved_model)
-            elif models:
-                self.model_combo.current(0)
+                if saved_model and saved_model in models:
+                    self.model_combo.set(saved_model)
+                elif models:
+                    self.model_combo.current(0)
 
             if 'language' in self.config:
                 lang_code = self.config['language']
@@ -423,22 +440,42 @@ class VoiceSnipGUI:
             return
         provider_name = self.provider_display_to_name[selected_display]
 
-        base_provider = 'whisper' if 'whisper' in provider_name else 'deepgram'
+        # Determine base provider for config storage
+        if 'whisper' in provider_name and 'server' not in provider_name:
+            base_provider = 'whisper'
+        elif 'faster-whisper-server' in provider_name:
+            base_provider = 'faster-whisper-server'
+        else:
+            base_provider = 'deepgram'
 
         model = self.model_combo.get()
 
         if not hotkey or hotkey.strip() == "":
             messagebox.showerror("Error", "Please configure a hotkey.")
             return
-        if not model:
-            messagebox.showerror("Error", "Please select a model.")
-            return
+
+        # Only validate model if provider requires one (not for providers with external model config)
+        if provider_name != 'faster-whisper-server':
+            if not model or model.startswith("N/A"):
+                messagebox.showerror("Error", "Please select a model.")
+                return
 
         # Prepare provider config
-        provider_config = {'model': model}
+        provider_config = {}
+
         if provider_name == 'deepgram-cloud':
+            provider_config['model'] = model
             provider_config['api_key'] = os.getenv('DEEPGRAM_API_KEY')
             provider_config['endpoint'] = os.getenv('DEEPGRAM_ENDPOINT')
+        elif provider_name == 'faster-whisper-server':
+            # Faster Whisper Server doesn't use model parameter (configured on server)
+            provider_config['endpoint'] = os.getenv('FASTER_WHISPER_ENDPOINT')
+            api_key = os.getenv('FASTER_WHISPER_API_KEY')
+            if api_key:
+                provider_config['api_key'] = api_key
+        else:
+            # Local Whisper providers
+            provider_config['model'] = model
 
         # Save settings
         if 'provider' not in self.config:
@@ -468,7 +505,8 @@ class VoiceSnipGUI:
             )
             self.core.set_status_callback(self.update_status)
 
-            if 'whisper' in provider_name:
+            # Only show model download info for local Whisper (not for server-based providers)
+            if 'whisper' in provider_name and 'server' not in provider_name:
                 if not self.core.stt_provider.is_model_downloaded():
                     show_model_download_info(self.root, model)
 

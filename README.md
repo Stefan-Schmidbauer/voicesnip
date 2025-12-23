@@ -7,7 +7,7 @@ Push-to-Talk Speech-to-Text application with multiple provider support and intui
 ## Features
 
 - 🎤 **Push-to-Talk**: Hold your configured hotkey to record
-- 🔄 **Multiple Providers**: Whisper Local CPU, Whisper Local GPU, or Deepgram Cloud
+- 🔄 **Multiple Providers**: Whisper Local (CPU/GPU), Faster Whisper Server, or Deepgram Cloud
 - ⌨️ **Configurable Hotkeys**: Set any key combination (Ctrl+Space, Alt+R, etc.)
 - 🖥️ **Simple GUI**: Easy microphone, provider, language, and hotkey configuration
 - 🌍 **Multi-Language**: German, English, or Auto-Detection
@@ -18,15 +18,15 @@ Push-to-Talk Speech-to-Text application with multiple provider support and intui
 
 ## Provider Comparison
 
-| Feature          | Whisper Local CPU                          | Whisper Local GPU                          | Deepgram Cloud                                  |
-| ---------------- | ------------------------------------------ | ------------------------------------------ | ----------------------------------------------- |
-| **Cost**         | Free                                       | Free                                       | [Deepgram Prices](https://deepgram.com/pricing) |
-| **Requirements** | None                                       | NVIDIA GPU + CUDA                          | API key, Internet                               |
-| **Privacy**      | Local processing                           | Local processing                           | Cloud processing                                |
-| **Internet**     | Model download only                        | Model download only                        | Required                                        |
-| **Setup**        | Auto-downloads model                       | Auto-downloads model                       | API key needed                                  |
-| **Models**       | tiny, base, small, medium, large-v3, turbo | tiny, base, small, medium, large-v3, turbo | nova-2-general, nova-2                          |
-| **Best for**     | Privacy, offline use                       | Speed + Privacy                            | Fastest setup                                   |
+| Feature          | Whisper Local CPU                          | Whisper Local GPU                          | Faster Whisper Server                            | Deepgram Cloud                                  |
+| ---------------- | ------------------------------------------ | ------------------------------------------ | ------------------------------------------------ | ----------------------------------------------- |
+| **Cost**         | Free                                       | Free                                       | Free (self-hosted)                               | [Deepgram Prices](https://deepgram.com/pricing) |
+| **Requirements** | None                                       | NVIDIA GPU + CUDA                          | Faster Whisper Server running                    | API key, Internet                               |
+| **Privacy**      | Local processing                           | Local processing                           | Local/network processing                         | Cloud processing                                |
+| **Internet**     | Model download only                        | Model download only                        | Server setup only                                | Required                                        |
+| **Setup**        | Auto-downloads model                       | Auto-downloads model                       | Configure endpoint                               | API key needed                                  |
+| **Models**       | tiny, base, small, medium, large-v3, turbo | tiny, base, small, medium, large-v3, turbo | Configured on server                             | nova-2-general, nova-2                          |
+| **Best for**     | Privacy, offline use                       | Speed + Privacy                            | Distributed setups, GPU sharing                  | Fastest setup                                   |
 
 **Note**:
 
@@ -58,10 +58,12 @@ VoiceSnip uses a profile-based installation system. Choose the profile that fits
 
 **Available Profiles:**
 
-| Profile   | Description                                          | Providers Available                                  |
-| --------- | ---------------------------------------------------- | ---------------------------------------------------- |
-| **basis** | Whisper Local CPU + Deepgram Cloud transcription     | Whisper Local CPU, Deepgram Cloud                    |
-| **cuda**  | Full-featured with local Whisper (CPU + GPU support) | Whisper Local CPU, Whisper Local GPU, Deepgram Cloud |
+| Profile      | Description                                                              | Providers Available                                                       |
+| ------------ | ------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| **basis**    | Whisper Local CPU + Deepgram Cloud transcription                         | Whisper Local CPU, Deepgram Cloud                                         |
+| **cuda**     | Local Whisper with GPU support                                           | Whisper Local CPU, Whisper Local GPU, Deepgram Cloud                      |
+| **server**   | Faster Whisper Server via remote/network connection                      | Faster Whisper Server, Deepgram Cloud                                     |
+| **full**     | All providers: Local Whisper (CPU+GPU) + Faster Whisper Server          | Whisper Local CPU, Whisper Local GPU, Faster Whisper Server, Deepgram    |
 
 **Installation Flow:**
 
@@ -77,6 +79,8 @@ VoiceSnip uses a profile-based installation system. Choose the profile that fits
 ```bash
 ./install.py --profile basis   # For Deepgram + Whisper CPU
 ./install.py --profile cuda    # For Deepgram + Whisper CPU/GPU
+./install.py --profile server  # For Deepgram + Faster Whisper Server
+./install.py --profile full    # For all providers
 ```
 
 ### 3. Configuration
@@ -96,6 +100,16 @@ DEEPGRAM_ENDPOINT=https://api.eu.deepgram.com/v1/listen
 ```
 
 **Note**: The default endpoint uses the EU region (`api.eu.deepgram.com`). For US region, use `https://api.deepgram.com/v1/listen`.
+
+**For Faster Whisper Server**: Configure the server endpoint in your `.env` file:
+
+```bash
+# Faster Whisper Server Configuration
+FASTER_WHISPER_ENDPOINT=http://your-server:8000/v1/audio/transcriptions
+# FASTER_WHISPER_API_KEY=your_api_key_here  # Optional, only if server requires authentication
+```
+
+**Note**: The model is configured on the Faster Whisper Server itself (not in VoiceSnip). The server must be running and accessible before using this provider.
 
 ### 4. Start VoiceSnip
 
@@ -143,6 +157,7 @@ If you want to rebuild the virtual environment from scratch (clean install):
 2. **Select Provider**: Choose between:
    - **Whisper Local CPU** - Free, works everywhere
    - **Whisper Local GPU** - Free, much faster with NVIDIA GPU! 🚀
+   - **Faster Whisper Server** - Network/remote server access
    - **Deepgram Cloud** - Requires API key, fastest setup
 3. **Select Model**: Choose model size (auto-populated based on provider)
 4. **Select Language**: Choose German, English, or Auto-Detection
@@ -199,6 +214,7 @@ voicesnip/
 ├── providers/                 # STT provider implementations
 │   ├── base.py                # Base provider class
 │   ├── whisper.py             # Whisper (local) provider
+│   ├── faster_whisper_server.py # Faster Whisper Server provider
 │   └── deepgram.py            # Deepgram (cloud) provider
 ├── assets/                    # Application assets
 │   └── icons/
@@ -217,7 +233,7 @@ VoiceSnip creates and uses the following files and directories:
 
 **In installation directory:**
 
-- **`.env`**: Contains Deepgram API key and endpoint configuration
+- **`.env`**: Contains API keys and endpoint configuration (Deepgram, Faster Whisper Server)
 
 **In `~/.config/voicesnip/`:**
 

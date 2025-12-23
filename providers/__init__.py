@@ -12,6 +12,7 @@ from typing import Dict, Type
 from .base import STTProvider
 from .deepgram import DeepgramProvider
 from .whisper import WhisperProvider
+from .faster_whisper_server import FasterWhisperServerProvider
 
 
 # Provider Registry
@@ -19,6 +20,7 @@ PROVIDERS: Dict[str, Type[STTProvider]] = {
     'deepgram-cloud': DeepgramProvider,
     'whisper-local-cpu': WhisperProvider,
     'whisper-local-gpu': WhisperProvider,
+    'faster-whisper-server': FasterWhisperServerProvider,
 }
 
 
@@ -27,7 +29,7 @@ def create_provider(name: str, **config) -> STTProvider:
     Factory method to create provider instance.
 
     Args:
-        name: Provider name ('whisper-local-cpu', 'whisper-local-gpu', 'deepgram-cloud')
+        name: Provider name ('whisper-local-cpu', 'whisper-local-gpu', 'deepgram-cloud', 'faster-whisper-server')
         **config: Provider-specific configuration
 
     Returns:
@@ -54,6 +56,7 @@ __all__ = [
     'STTProvider',
     'DeepgramProvider',
     'WhisperProvider',
+    'FasterWhisperServerProvider',
     'create_provider',
     'PROVIDERS',
 ]

@@ -56,6 +56,121 @@ def print_info(text: str):
     print(f"{Colors.OKCYAN}ℹ {text}{Colors.ENDC}")
 
 
+def get_venv_paths(venv_path: Path) -> Tuple[Path, Path]:
+    """Get platform-appropriate paths for venv executables.
+
+    On Windows, venv uses 'Scripts' folder with .exe extensions.
+    On Linux/macOS, venv uses 'bin' folder without extensions.
+
+    Args:
+        venv_path: Path to the virtual environment directory
+
+    Returns:
+        Tuple of (pip_path, python_path)
+    """
+    if sys.platform == 'win32':
+        pip_exe = venv_path / 'Scripts' / 'pip.exe'
+        python_exe = venv_path / 'Scripts' / 'python.exe'
+    else:
+        pip_exe = venv_path / 'bin' / 'pip'
+        python_exe = venv_path / 'bin' / 'python'
+
+    return pip_exe, python_exe
+
+
+def get_config_dir(config_dir_name: str) -> Path:
+    """Get platform-appropriate configuration directory.
+
+    On Windows: uses LOCALAPPDATA environment variable (fallback to home directory).
+    On Linux/macOS: uses ~/.config/
+
+    Args:
+        config_dir_name: Name of the config directory (e.g., 'myapp')
+
+    Returns:
+        Path to the configuration directory
+    """
+    if sys.platform == 'win32':
+        # Use LOCALAPPDATA on Windows (local to machine, better for quickstrap)
+        appdata = os.environ.get('LOCALAPPDATA')
+        if appdata:
+            return Path(appdata) / config_dir_name
+        else:
+            return Path.home() / config_dir_name
+    else:
+        return Path.home() / '.config' / config_dir_name
+
+
+def get_platform_name() -> str:
+    """Get normalized platform name.
+
+    Returns:
+        'linux' on Linux/macOS, 'windows' on Windows
+    """
+    return 'windows' if sys.platform == 'win32' else 'linux'
+
+
+def resolve_platform_config(config: Dict, key: str, required: bool = False) -> Optional[str]:
+    """Resolve platform-specific or generic config value.
+
+    Tries platform-specific key first (e.g., 'start_command_linux' or 'start_command_windows'),
+    then falls back to generic key (e.g., 'start_command').
+
+    Args:
+        config: Configuration dictionary (metadata or profile)
+        key: Base key name (without platform suffix)
+        required: If True, print error if key not found
+
+    Returns:
+        Resolved value or None if not found
+    """
+    platform = get_platform_name()
+
+    # Try platform-specific key first
+    platform_key = f"{key}_{platform}"
+    if platform_key in config and config[platform_key].strip():
+        return config[platform_key].strip()
+
+    # Fall back to generic key
+    if key in config and config[key].strip():
+        return config[key].strip()
+
+    # Not found
+    if required:
+        print_error(f"Required configuration key '{key}' not found (tried '{platform_key}' and '{key}')")
+
+    return None
+
+
+def validate_platform_support(metadata: Dict) -> bool:
+    """Validate that current platform is supported by this application.
+
+    Args:
+        metadata: Metadata dictionary from installation_profiles.ini
+
+    Returns:
+        True if current platform is supported, False otherwise
+    """
+    supported = metadata.get('supported_platforms', 'linux,windows').strip()
+
+    # Parse supported platforms
+    supported_list = [p.strip().lower() for p in supported.split(',') if p.strip()]
+
+    # Get current platform
+    current_platform = get_platform_name()
+
+    # Check if current platform is supported
+    if current_platform not in supported_list:
+        platform_display = 'Windows' if current_platform == 'windows' else 'Linux'
+        print_error(f"This application does not support {platform_display}")
+        print()
+        print_info(f"Supported platforms: {', '.join(supported_list)}")
+        print()
+        return False
+
+    return True
+
+
 def read_profiles(profile_file: str = 'quickstrap/installation_profiles.ini') -> Tuple[Dict, Dict]:
     """Read and parse installation profiles.
 
@@ -85,8 +200,64 @@ def read_profiles(profile_file: str = 'quickstrap/installation_profiles.ini') ->
     return profiles, metadata
 
 
-def check_system_packages(package_file: str) -> Tuple[List[str], List[str]]:
-    """Check which system packages are installed.
+def run_windows_system_check(script_path: str) -> Tuple[List[str], List[str]]:
+    """Run PowerShell system check script on Windows.
+
+    Executes a PowerShell script that checks for required system software
+    and returns JSON with installed/missing lists.
+
+    Args:
+        script_path: Path to PowerShell script
+
+    Returns:
+        Tuple of (installed_software, missing_software)
+    """
+    if not Path(script_path).exists():
+        print_error(f"System check script not found: {script_path}")
+        return [], []
+
+    print_info(f"Running Windows system check: {script_path}")
+
+    try:
+        # Run PowerShell script with ExecutionPolicy Bypass
+        result = subprocess.run(
+            ['powershell', '-ExecutionPolicy', 'Bypass', '-File', script_path],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        if result.returncode != 0:
+            print_error("System check script failed")
+            if result.stderr:
+                print_error(f"Error: {result.stderr}")
+            return [], []
+
+        # Parse JSON output
+        import json
+        try:
+            data = json.loads(result.stdout.strip())
+            installed = data.get('installed', [])
+            missing = data.get('missing', [])
+            return installed, missing
+        except json.JSONDecodeError as e:
+            print_error(f"Failed to parse system check output: {e}")
+            print_info("Script output:")
+            print(result.stdout)
+            return [], []
+
+    except subprocess.TimeoutExpired:
+        print_error("System check script timed out (>30s)")
+        return [], []
+    except Exception as e:
+        print_error(f"Failed to run system check script: {e}")
+        return [], []
+
+
+def check_system_packages_linux(package_file: str) -> Tuple[List[str], List[str]]:
+    """Check which Linux system packages (APT/DEB) are installed.
+
+    Uses dpkg-query to check package status on Debian/Ubuntu systems.
 
     Args:
         package_file: Path to file containing package names (one per line)
@@ -110,7 +281,7 @@ def check_system_packages(package_file: str) -> Tuple[List[str], List[str]]:
     if not packages:
         return [], []
 
-    print_info(f"Checking {len(packages)} system packages...")
+    print_info(f"Checking {len(packages)} APT/DEB system packages...")
 
     # Check all packages at once for better performance
     result = subprocess.run(
@@ -136,6 +307,37 @@ def check_system_packages(package_file: str) -> Tuple[List[str], List[str]]:
             missing.append(package)
 
     return installed, missing
+
+
+def check_system_requirements(profile: Dict) -> Tuple[List[str], List[str]]:
+    """Check system requirements based on platform.
+
+    On Linux: Check APT/DEB packages from system_requirements_linux file
+    On Windows: Run PowerShell check script from system_check_script_windows
+
+    Args:
+        profile: Profile configuration dictionary
+
+    Returns:
+        Tuple of (installed, missing)
+    """
+    platform = get_platform_name()
+
+    if platform == 'linux':
+        # Linux: check APT packages
+        req_file = resolve_platform_config(profile, 'system_requirements')
+        if not req_file:
+            print_warning("No system requirements file specified for Linux")
+            return [], []
+        return check_system_packages_linux(req_file)
+    else:
+        # Windows: run PowerShell check script
+        check_script = resolve_platform_config(profile, 'system_check_script')
+        if not check_script:
+            print_warning("No system check script specified for Windows")
+            print_info("Skipping system requirements check")
+            return [], []
+        return run_windows_system_check(check_script)
 
 
 def setup_venv(force: bool = False) -> Path:
@@ -173,8 +375,7 @@ def setup_venv(force: bool = False) -> Path:
             sys.exit(1)
     else:
         # Verify the venv is valid by checking for critical files
-        pip_exe = venv_path / 'bin' / 'pip'
-        python_exe = venv_path / 'bin' / 'python'
+        pip_exe, python_exe = get_venv_paths(venv_path)
 
         if not pip_exe.exists() or not python_exe.exists():
             print_warning("Virtual environment exists but appears corrupted")
@@ -202,8 +403,49 @@ def setup_venv(force: bool = False) -> Path:
     return venv_path
 
 
-def install_python_packages(venv_path: Path, requirements_file: str) -> bool:
-    """Install Python packages from requirements file.
+def check_package_updates(venv_path: Path, requirements_file: str) -> Dict[str, str]:
+    """Check for available package updates.
+
+    Args:
+        venv_path: Path to virtual environment
+        requirements_file: Path to requirements file
+
+    Returns:
+        Dict mapping package names to available versions
+    """
+    if not Path(requirements_file).exists():
+        print_error(f"Requirements file not found: {requirements_file}")
+        return {}
+
+    pip_exe = venv_path / 'bin' / 'pip'
+
+    if not pip_exe.exists():
+        print_error(f"pip not found at {pip_exe}")
+        return {}
+
+    print_info("Checking for package updates...")
+
+    # Get list of outdated packages
+    result = subprocess.run(
+        [str(pip_exe), 'list', '--outdated', '--format=json'],
+        capture_output=True,
+        text=True
+    )
+
+    if result.returncode != 0:
+        print_error("Failed to check for updates")
+        return {}
+
+    try:
+        import json
+        outdated = json.loads(result.stdout)
+        return {pkg['name']: pkg['latest_version'] for pkg in outdated}
+    except:
+        return {}
+
+
+def update_python_packages(venv_path: Path, requirements_file: str) -> bool:
+    """Update Python packages from requirements file.
 
     Args:
         venv_path: Path to virtual environment
@@ -218,6 +460,60 @@ def install_python_packages(venv_path: Path, requirements_file: str) -> bool:
 
     pip_exe = venv_path / 'bin' / 'pip'
 
+    if not pip_exe.exists():
+        print_error(f"pip not found at {pip_exe}")
+        print_error("Virtual environment may be corrupted")
+        print_info("Try running with --rebuild-venv flag to recreate it")
+        return False
+
+    print_info(f"Updating Python packages from {requirements_file}...")
+    print_info("This may take several minutes...")
+
+    # Upgrade packages
+    result = subprocess.run(
+        [str(pip_exe), 'install', '--upgrade', '-r', requirements_file],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True
+    )
+
+    # Write full output to log
+    with open('install.log', 'a') as f:
+        f.write(f"\n{'=' * 70}\n")
+        f.write(f"Update log: {datetime.now().isoformat()}\n")
+        f.write(f"Requirements: {requirements_file}\n")
+        f.write(f"{'=' * 70}\n")
+        f.write(result.stdout)
+
+    if result.returncode != 0:
+        print_error("Failed to update Python packages")
+        print_info("Check install.log for details")
+        return False
+
+    print_success("Python packages updated successfully")
+    return True
+
+
+def install_python_packages(venv_path: Path, requirements_file: str) -> bool:
+    """Install Python packages from requirements file.
+
+    Args:
+        venv_path: Path to virtual environment
+        requirements_file: Path to requirements file
+
+    Returns:
+        True if successful
+    """
+    if not requirements_file:
+        print_error("No Python requirements file specified for this platform")
+        return False
+
+    if not Path(requirements_file).exists():
+        print_error(f"Requirements file not found: {requirements_file}")
+        return False
+
+    pip_exe, _ = get_venv_paths(venv_path)
+
     # Verify pip executable exists
     if not pip_exe.exists():
         print_error(f"pip not found at {pip_exe}")
@@ -225,7 +521,8 @@ def install_python_packages(venv_path: Path, requirements_file: str) -> bool:
         print_info("Try running with --rebuild-venv flag to recreate it")
         return False
 
-    print_info(f"Installing Python packages from {requirements_file}...")
+    platform_display = "Windows" if get_platform_name() == 'windows' else "Linux"
+    print_info(f"Installing Python packages for {platform_display} from {requirements_file}...")
     print_info("This may take several minutes...")
 
     # Run pip with progress
@@ -256,6 +553,8 @@ def install_python_packages(venv_path: Path, requirements_file: str) -> bool:
 def validate_profile_files(profile: Dict) -> List[str]:
     """Validate that all files referenced in the profile exist.
 
+    Checks both platform-specific and generic file references.
+
     Args:
         profile: Profile configuration dict
 
@@ -264,39 +563,77 @@ def validate_profile_files(profile: Dict) -> List[str]:
     """
     missing = []
 
-    # Check python requirements
-    if 'python_requirements' in profile:
-        req_file = profile['python_requirements']
-        if not Path(req_file).exists():
-            missing.append(f"{req_file} (python_requirements)")
+    # Check python requirements (platform-specific or generic)
+    python_req = resolve_platform_config(profile, 'python_requirements')
+    if python_req and not Path(python_req).exists():
+        missing.append(f"{python_req} (python_requirements)")
+    elif not python_req:
+        # No python requirements found at all
+        platform = get_platform_name()
+        missing.append(f"python_requirements_{platform} or python_requirements (not specified)")
 
-    # Check system requirements
-    if 'system_requirements' in profile:
-        req_file = profile['system_requirements']
-        if not Path(req_file).exists():
-            missing.append(f"{req_file} (system_requirements)")
+    # Check system requirements (platform-specific)
+    platform = get_platform_name()
+    if platform == 'linux':
+        sys_req = resolve_platform_config(profile, 'system_requirements')
+        if sys_req and not Path(sys_req).exists():
+            missing.append(f"{sys_req} (system_requirements_linux)")
+    else:
+        # Windows: check for system check script
+        check_script = resolve_platform_config(profile, 'system_check_script')
+        if check_script and not Path(check_script).exists():
+            missing.append(f"{check_script} (system_check_script_windows)")
 
-    # Check post_install_scripts
-    scripts = profile.get('post_install_scripts', '').strip()
+    # Check post_install_scripts (platform-specific)
+    scripts = resolve_platform_config(profile, 'post_install_scripts')
     if scripts:
         script_list = [s.strip() for s in scripts.split(',') if s.strip()]
         for script_path in script_list:
             if not Path(script_path).exists():
-                missing.append(f"{script_path} (post_install_scripts)")
+                missing.append(f"{script_path} (post_install_scripts_{platform})")
 
-    # Check pre_install_scripts
-    scripts_pre = profile.get('pre_install_scripts', '').strip()
+    # Check pre_install_scripts (platform-specific)
+    scripts_pre = resolve_platform_config(profile, 'pre_install_scripts')
     if scripts_pre:
         script_list = [s.strip() for s in scripts_pre.split(',') if s.strip()]
         for script_path in script_list:
             if not Path(script_path).exists():
-                missing.append(f"{script_path} (pre_install_scripts)")
+                missing.append(f"{script_path} (pre_install_scripts_{platform})")
 
     return missing
 
 
+def run_bash_script(script_path: str, env: Optional[Dict] = None) -> Optional[subprocess.CompletedProcess]:
+    """Run a bash script with cross-platform handling.
+
+    On Windows, bash scripts are skipped since bash is typically not available.
+    On Linux/macOS, scripts are executed with bash.
+
+    Args:
+        script_path: Path to the bash script to run
+        env: Optional environment variables for the script
+
+    Returns:
+        CompletedProcess result on Linux/macOS, None on Windows (script skipped)
+    """
+    if sys.platform == 'win32':
+        # On Windows, bash is not typically available
+        return None
+
+    return subprocess.run(
+        ['bash', script_path],
+        env=env,
+        capture_output=True,
+        text=True
+    )
+
+
 def run_pre_install_scripts(scripts: str, profile_name: str) -> bool:
     """Run pre-installation scripts.
+
+    On Windows, bash scripts are skipped with a warning since bash is
+    typically not available. The function returns True to allow
+    installation to continue.
 
     Args:
         scripts: Comma-separated list of scripts to run
@@ -312,6 +649,17 @@ def run_pre_install_scripts(scripts: str, profile_name: str) -> bool:
 
     print_header("Step 2: Pre-Installation Scripts")
 
+    # On Windows, skip bash scripts with a warning
+    if sys.platform == 'win32':
+        print_warning("Bash script execution is not available on Windows")
+        print_info(f"The following {len(script_list)} pre-install script(s) will be skipped:")
+        for script_path in script_list:
+            print(f"    - {script_path}")
+        print_info("On Windows, you may need to manually perform any pre-installation steps")
+        print_info("Skipping pre-install scripts...")
+        print_success("Pre-install scripts skipped on Windows")
+        return True
+
     failed_scripts = []
 
     for script_path in script_list:
@@ -321,11 +669,7 @@ def run_pre_install_scripts(scripts: str, profile_name: str) -> bool:
 
         print_info(f"Running pre-install script: {script_path}")
 
-        result = subprocess.run(
-            ['bash', script_path],
-            capture_output=True,
-            text=True
-        )
+        result = run_bash_script(script_path)
 
         # Display output
         if result.stdout:
@@ -360,7 +704,10 @@ def run_pre_install_scripts(scripts: str, profile_name: str) -> bool:
 
 
 def write_installation_config(profile_name: str, features: str, config_dir_name: str) -> Path:
-    """Write installation config to ~/.config/{config_dir_name}/
+    """Write installation config to platform-appropriate config directory.
+
+    On Windows: %APPDATA%/{config_dir_name}/
+    On Linux/macOS: ~/.config/{config_dir_name}/
 
     Args:
         profile_name: Name of installed profile
@@ -370,7 +717,7 @@ def write_installation_config(profile_name: str, features: str, config_dir_name:
     Returns:
         Path to the written config file
     """
-    config_dir = Path.home() / '.config' / config_dir_name
+    config_dir = get_config_dir(config_dir_name)
     config_dir.mkdir(parents=True, exist_ok=True)
 
     config_file = config_dir / 'installation_profile.ini'
@@ -430,6 +777,10 @@ def main():
         print_error("No installation profiles found")
         sys.exit(1)
 
+    # Validate platform support
+    if not validate_platform_support(metadata):
+        sys.exit(1)
+
     # Get app name from metadata or use generic name
     app_name = metadata.get('app_name', 'Application')
     config_dir_name = metadata.get('config_dir', 'app')
@@ -445,6 +796,9 @@ Examples:
   ./install.py --rebuild-venv               # Rebuild venv, then interactive menu
   ./install.py --profile {list(profiles.keys())[0] if profiles else 'profile'} --rebuild-venv # Rebuild venv for specific profile
   ./install.py --dry-run                    # Show what would be installed
+  ./install.py --validate                   # Validate all profiles
+  ./install.py --check-update-python        # Check for Python package updates
+  ./install.py --update-python              # Update Python packages
         """
     )
     parser.add_argument(
@@ -462,11 +816,249 @@ Examples:
         action='store_true',
         help='Show what would be installed without making changes'
     )
+    parser.add_argument(
+        '--validate',
+        action='store_true',
+        help='Validate all profiles and their referenced files without installing'
+    )
+    parser.add_argument(
+        '--check-update-python',
+        action='store_true',
+        help='Check for available Python package updates'
+    )
+    parser.add_argument(
+        '--update-python',
+        action='store_true',
+        help='Update Python packages in existing virtual environment'
+    )
 
     args = parser.parse_args()
 
+    # Validate mode - check all profiles and exit
+    if args.validate:
+        print_header(f"{app_name} Configuration Validation")
+
+        all_valid = True
+
+        for profile_name, profile in profiles.items():
+            print_info(f"Validating profile: {profile_name}")
+
+            # Check required fields (platform-aware)
+            required_fields = ['name', 'description', 'features']
+            missing_fields = [f for f in required_fields if f not in profile or not profile[f].strip()]
+
+            # Check platform-specific requirements exist
+            python_req = resolve_platform_config(profile, 'python_requirements')
+            if not python_req:
+                missing_fields.append('python_requirements (platform-specific)')
+
+            platform = get_platform_name()
+            if platform == 'linux':
+                sys_req = resolve_platform_config(profile, 'system_requirements')
+                if not sys_req:
+                    missing_fields.append('system_requirements_linux')
+            else:
+                sys_check = resolve_platform_config(profile, 'system_check_script')
+                if not sys_check:
+                    missing_fields.append('system_check_script_windows (optional but recommended)')
+
+            if missing_fields:
+                print_error(f"  Missing required fields: {', '.join(missing_fields)}")
+                all_valid = False
+            else:
+                print_success(f"  Required fields: OK")
+
+            # Validate file references
+            missing_files = validate_profile_files(profile)
+            if missing_files:
+                print_error(f"  Missing files:")
+                for missing_file in missing_files:
+                    print(f"    - {missing_file}")
+                all_valid = False
+            else:
+                print_success(f"  File references: OK")
+
+            # Check script executability
+            scripts_to_check = []
+
+            scripts_pre = profile.get('pre_install_scripts', '').strip()
+            if scripts_pre:
+                scripts_to_check.extend([(s.strip(), 'pre_install') for s in scripts_pre.split(',') if s.strip()])
+
+            scripts_post = profile.get('post_install_scripts', '').strip()
+            if scripts_post:
+                scripts_to_check.extend([(s.strip(), 'post_install') for s in scripts_post.split(',') if s.strip()])
+
+            non_executable = []
+            for script_path, script_type in scripts_to_check:
+                if Path(script_path).exists() and not os.access(script_path, os.X_OK):
+                    non_executable.append(f"{script_path} ({script_type})")
+
+            if non_executable:
+                print_warning(f"  Non-executable scripts:")
+                for script in non_executable:
+                    print(f"    - {script}")
+                print_info(f"    Fix with: chmod +x <script>")
+            else:
+                if scripts_to_check:
+                    print_success(f"  Script executability: OK")
+
+            print()
+
+        # Check metadata
+        print_info("Validating metadata")
+        required_metadata = ['app_name', 'config_dir']
+        missing_metadata = [f for f in required_metadata if f not in metadata or not metadata[f].strip()]
+
+        # Check for start_command (platform-specific or generic)
+        start_cmd = resolve_platform_config(metadata, 'start_command')
+        if not start_cmd:
+            missing_metadata.append('start_command (platform-specific)')
+
+        if missing_metadata:
+            print_error(f"  Missing required metadata: {', '.join(missing_metadata)}")
+            all_valid = False
+        else:
+            print_success(f"  Metadata: OK")
+
+        print()
+
+        if all_valid:
+            print_header("Validation Successful!")
+            print_success("All profiles are properly configured")
+        else:
+            print_header("Validation Failed!")
+            print_error("Please fix the errors above")
+            sys.exit(1)
+
+        return
+
+    # Check Python packages mode
+    if args.check_update_python:
+        print_header(f"{app_name} Update Check")
+
+        # Check if venv exists
+        venv_path = Path('venv')
+        if not venv_path.exists():
+            print_error("Virtual environment not found")
+            print_info("Run ./install.py first to install the application")
+            sys.exit(1)
+
+        # Determine which profile is installed
+        config_dir = Path.home() / '.config' / config_dir_name
+        config_file = config_dir / 'installation_profile.ini'
+
+        if not config_file.exists():
+            print_error("Installation profile not found")
+            print_info("Cannot determine which profile is installed")
+            print_info("Run ./install.py to install a profile")
+            sys.exit(1)
+
+        # Read installed profile
+        config = ConfigParser()
+        config.read(config_file)
+        installed_profile_name = config.get('installation', 'profile', fallback=None)
+
+        if not installed_profile_name or installed_profile_name not in profiles:
+            print_error(f"Installed profile '{installed_profile_name}' not found in configuration")
+            sys.exit(1)
+
+        profile = profiles[installed_profile_name]
+        print_info(f"Installed profile: {profile['name']}")
+
+        # Check for updates (platform-specific requirements)
+        python_req = resolve_platform_config(profile, 'python_requirements', required=True)
+        if not python_req:
+            sys.exit(1)
+        updates = check_package_updates(venv_path, python_req)
+
+        if not updates:
+            print_success("All packages are up to date!")
+        else:
+            print_warning(f"Found {len(updates)} package(s) with available updates:")
+            print()
+            for pkg_name, new_version in sorted(updates.items()):
+                print(f"  • {pkg_name} → {new_version}")
+            print()
+            print_info("Run './install.py --update-python' to update packages")
+
+        return
+
+    # Update mode
+    if args.update_python:
+        # Determine profile to update
+        config_dir = Path.home() / '.config' / config_dir_name
+        config_file = config_dir / 'installation_profile.ini'
+
+        if not config_file.exists():
+            print_error("Installation profile not found")
+            print_info("Cannot determine which profile is installed")
+            print_info("Run ./install.py to install a profile")
+            sys.exit(1)
+
+        # Read installed profile
+        config = ConfigParser()
+        config.read(config_file)
+        installed_profile_name = config.get('installation', 'profile', fallback=None)
+
+        if not installed_profile_name or installed_profile_name not in profiles:
+            print_error(f"Installed profile '{installed_profile_name}' not found in configuration")
+            sys.exit(1)
+
+        profile = profiles[installed_profile_name]
+
+        print_header(f"{app_name} Package Update")
+        print_info(f"Profile: {profile['name']}")
+
+        venv_path = Path('venv')
+        if not venv_path.exists():
+            print_error("Virtual environment not found")
+            print_info("Run ./install.py first to install the application")
+            sys.exit(1)
+
+        # Update packages (platform-specific requirements)
+        python_req = resolve_platform_config(profile, 'python_requirements', required=True)
+        if not python_req:
+            sys.exit(1)
+        success = update_python_packages(venv_path, python_req)
+
+        if success:
+            print()
+            print_header("Update Complete!")
+            print_success("Python packages updated successfully")
+        else:
+            print_error("Update failed")
+            sys.exit(1)
+
+        return
+
     # Print header
     print_header(f"{app_name} Installation")
+
+    # Validation mode - validate all profiles without installing
+    if args.validate:
+        print_header("Validation Mode")
+        print_info(f"Validating {len(profiles)} profile(s)...")
+
+        all_valid = True
+        for profile_name, profile_config in profiles.items():
+            print_info(f"Validating profile: {profile_name}")
+            missing_files = validate_profile_files(profile_config)
+            if missing_files:
+                all_valid = False
+                print_error(f"  Profile '{profile_name}' has missing files:")
+                for missing_file in missing_files:
+                    print(f"    - {missing_file}")
+            else:
+                print_success(f"  Profile '{profile_name}' is valid")
+
+        print()
+        if all_valid:
+            print_success("All profiles validated successfully")
+            sys.exit(0)
+        else:
+            print_error("Validation failed - some profiles have missing files")
+            sys.exit(1)
 
     # Show loaded profiles
     print_info("Loading installation profiles...")
@@ -506,40 +1098,65 @@ Examples:
     if args.dry_run:
         print_header("Dry Run Mode - No Changes Will Be Made")
         print(f"Profile: {profile_name}")
-        print(f"System packages file: {profile['system_requirements']}")
-        print(f"Python packages file: {profile['python_requirements']}")
+
+        python_req = resolve_platform_config(profile, 'python_requirements')
+        print(f"Python packages file: {python_req}")
+
+        platform = get_platform_name()
+        if platform == 'linux':
+            sys_req = resolve_platform_config(profile, 'system_requirements')
+            print(f"System packages file: {sys_req}")
+        else:
+            sys_check = resolve_platform_config(profile, 'system_check_script')
+            print(f"System check script: {sys_check or '(none)'}")
+
         print(f"Features: {profile['features']}")
 
         # Check system packages
-        _, missing_system = check_system_packages(profile['system_requirements'])
+        _, missing_system = check_system_requirements(profile)
         if missing_system:
-            print(f"\nMissing system packages: {', '.join(missing_system)}")
-            print(f"Would need to run: sudo apt install {' '.join(missing_system)}")
+            if platform == 'linux':
+                print(f"\nMissing system packages: {', '.join(missing_system)}")
+                print(f"Would need to run: sudo apt install {' '.join(missing_system)}")
+            else:
+                print(f"\nMissing system requirements: {', '.join(missing_system)}")
+        else:
+            print("\nAll system requirements are met")
 
         print("\nDry run complete")
         return
 
     # Check system packages
-    print_header("Step 1: System Package Check")
-    installed, missing = check_system_packages(profile['system_requirements'])
+    print_header("Step 1: System Requirements Check")
+    installed, missing = check_system_requirements(profile)
 
-    print_success(f"{len(installed)} system packages already installed")
+    # Show results based on platform
+    platform = get_platform_name()
+    if installed:
+        print_success(f"{len(installed)} system requirement(s) already installed/available")
 
     if missing:
-        print_error(f"{len(missing)} system packages missing:")
-        for pkg in missing:
-            print(f"  - {pkg}")
+        print_error(f"{len(missing)} system requirement(s) missing:")
+        for item in missing:
+            print(f"  - {item}")
 
         print()
-        print_info("Please install missing system packages with:")
-        print(f"\n  {Colors.BOLD}sudo apt install {' '.join(missing)}{Colors.ENDC}\n")
-        print_info("Then re-run this installer.")
+        if platform == 'linux':
+            print_info("Please install missing system packages with:")
+            print(f"\n  {Colors.BOLD}sudo apt install {' '.join(missing)}{Colors.ENDC}\n")
+            print_info("Then re-run this installer.")
+        else:
+            print_info("Please install missing requirements manually, then re-run this installer.")
         sys.exit(1)
 
-    print_success("All system packages are installed")
+    if not installed and not missing:
+        # No check was performed (no script/file configured)
+        print_info("No system requirements check configured for this platform")
+    else:
+        print_success("All system requirements are met")
 
-    # Run pre-install scripts if defined
-    scripts_pre = profile.get('pre_install_scripts', '').strip()
+    # Run pre-install scripts if defined (platform-specific)
+    scripts_pre = resolve_platform_config(profile, 'pre_install_scripts')
     if scripts_pre:
         should_continue = run_pre_install_scripts(scripts_pre, profile_name)
         if not should_continue:
@@ -552,20 +1169,22 @@ Examples:
     print_header(f"Step {2 + step_offset}: Virtual Environment Setup")
     venv_path = setup_venv(force=args.rebuild_venv)
 
-    # Install Python packages
+    # Install Python packages (platform-specific)
     print_header(f"Step {3 + step_offset}: Python Package Installation")
-    success = install_python_packages(venv_path, profile['python_requirements'])
+    python_req = resolve_platform_config(profile, 'python_requirements', required=True)
+    success = install_python_packages(venv_path, python_req)
 
     if not success:
         print_error("Installation failed")
         sys.exit(1)
 
-    # Run post-install scripts if defined
-    scripts = profile.get('post_install_scripts', '').strip()
+    # Run post-install scripts if defined (platform-specific)
+    scripts = resolve_platform_config(profile, 'post_install_scripts')
     if scripts:
         print_header(f"Step {4 + step_offset}: Post-Installation Scripts")
         script_list = [s.strip() for s in scripts.split(',') if s.strip()]
 
+        platform = get_platform_name()
         for script_path in script_list:
             if not Path(script_path).exists():
                 print_warning(f"Post-install script not found: {script_path}")
@@ -576,16 +1195,29 @@ Examples:
             # Prepare environment with venv activation and Quickstrap metadata
             env = os.environ.copy()
             env['VIRTUAL_ENV'] = str(venv_path)
-            env['PATH'] = f"{venv_path / 'bin'}:{env['PATH']}"
+            pip_exe, _ = get_venv_paths(venv_path)
+            path_sep = ';' if sys.platform == 'win32' else ':'
+            env['PATH'] = f"{pip_exe.parent}{path_sep}{env['PATH']}"
             env['QUICKSTRAP_APP_NAME'] = app_name
             env['QUICKSTRAP_CONFIG_DIR'] = config_dir_name
 
-            result = subprocess.run(
-                ['bash', script_path],
-                env=env,
-                capture_output=True,
-                text=True
-            )
+            # Run script based on platform
+            if platform == 'windows':
+                # Run PowerShell script
+                result = subprocess.run(
+                    ['powershell', '-ExecutionPolicy', 'Bypass', '-File', script_path],
+                    env=env,
+                    capture_output=True,
+                    text=True
+                )
+            else:
+                # Run Bash script
+                result = subprocess.run(
+                    ['bash', script_path],
+                    env=env,
+                    capture_output=True,
+                    text=True
+                )
 
             # Display output
             if result.stdout:
@@ -614,9 +1246,10 @@ Examples:
     print_success(f"{app_name} '{profile['name']}' profile installed successfully")
     print()
 
-    # Show after_install message if provided
-    if 'after_install' in metadata:
-        print_info(metadata['after_install'])
+    # Show after_install message if provided (platform-specific)
+    after_install_msg = resolve_platform_config(metadata, 'after_install')
+    if after_install_msg:
+        print_info(after_install_msg)
         print()
 
     print_info("Installation configuration:")

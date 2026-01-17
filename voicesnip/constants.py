@@ -5,8 +5,25 @@ All application-wide constants including audio configuration
 and keyboard mappings.
 """
 
+import sys
+import os
 from pathlib import Path
 from pynput import keyboard
+
+
+def get_platform_config_dir():
+    """Get platform-appropriate config directory.
+
+    Windows: %LOCALAPPDATA%/voicesnip/
+    Linux: ~/.config/voicesnip/
+    """
+    if sys.platform == 'win32':
+        appdata = os.environ.get('LOCALAPPDATA')
+        if appdata:
+            return Path(appdata) / 'voicesnip'
+        return Path.home() / 'voicesnip'
+    else:
+        return Path.home() / '.config' / 'voicesnip'
 
 # Audio Configuration
 TARGET_SAMPLE_RATE = 16000
@@ -16,8 +33,8 @@ DTYPE = "int16"
 # Common sample rates to try (in order of preference)
 COMMON_SAMPLE_RATES = [16000, 44100, 48000, 22050, 8000]
 
-# Configuration paths
-CONFIG_DIR = Path.home() / '.config' / 'voicesnip'
+# Configuration paths (platform-aware)
+CONFIG_DIR = get_platform_config_dir()
 CONFIG_FILE = CONFIG_DIR / 'config.json'
 
 # GitHub URL

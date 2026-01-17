@@ -5,6 +5,8 @@ Handles loading and saving GUI configuration.
 """
 
 import json
+import sys
+import os
 from pathlib import Path
 from configparser import ConfigParser
 
@@ -50,7 +52,8 @@ def load_installation_config():
     Returns:
         Dict with config data or None if missing
     """
-    config_file = Path.home() / '.config' / 'voicesnip' / 'installation_profile.ini'
+    # Use platform-aware config directory
+    config_file = CONFIG_DIR / 'installation_profile.ini'
 
     if not config_file.exists():
         return None

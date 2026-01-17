@@ -1,0 +1,15 @@
+# VoiceSnip Python Requirements - Basis Profile (Windows)
+# Deepgram (cloud) + Whisper Local CPU transcription
+
+numpy>=1.20.0
+sounddevice>=0.4.6
+pynput>=1.7.6
+requests>=2.31.0
+python-dotenv>=1.0.0
+pillow>=10.0.0
+
+# Whisper dependencies for local CPU transcription
+faster-whisper>=1.0.0
+
+# NOTE: GPU acceleration (CUDA) is NOT included in the basis profile
+# For GPU acceleration, install the 'cuda' profile instead

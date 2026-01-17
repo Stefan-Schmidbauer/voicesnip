@@ -1,0 +1,17 @@
+# VoiceSnip Python Requirements - Full Profile (Windows)
+# All providers: Deepgram + Local Whisper (CPU+GPU) + Faster Whisper Server
+
+# Base requirements
+numpy>=1.20.0
+sounddevice>=0.4.6
+pynput>=1.7.6
+requests>=2.31.0
+python-dotenv>=1.0.0
+pillow>=10.0.0
+
+# Whisper dependencies for local transcription
+faster-whisper>=1.0.0
+
+# GPU acceleration (NVIDIA CUDA 12.x required)
+nvidia-cudnn-cu12>=9.0.0
+nvidia-cublas-cu12>=12.0.0

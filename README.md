@@ -1,6 +1,8 @@
-# VoiceSnip - Push-to-Talk Speech-to-Text for Linux
+# VoiceSnip - Push-to-Talk Speech-to-Text
 
 Push-to-Talk Speech-to-Text application with multiple provider support and intuitive GUI.
+
+**Platforms**: Linux, Windows
 
 ![VoiceSnip GUI](voicesnip.png)
 
@@ -35,20 +37,31 @@ Push-to-Talk Speech-to-Text application with multiple provider support and intui
 
 ## Requirements
 
-VoiceSnip requires X11 display server for desktop integration (xclip, xdotool, xprop). Wayland is not supported at the moment.
+### Linux
+- X11 display server for desktop integration (xdotool for text insertion)
+- Wayland is not supported at the moment
+- Debian/Ubuntu: Automated installation via `install.py`
+- Other distributions: Manual installation of system packages required
+
+### Windows
+- Windows 10 or later
+- Python 3.8+ ([Download](https://www.python.org/downloads/))
+- For CUDA profile: NVIDIA GPU with drivers ([Download](https://www.nvidia.com/Download/index.aspx))
 
 ## Installation
 
+### Linux Installation
+
 **Note**: The automated installation script (`install.py`) is designed for **Debian/Ubuntu-based systems** using `apt` package manager. For other Linux distributions, you'll need to manually install the equivalent system packages and then use `pip install -r requirements.txt` or `requirements_cuda.txt` in a virtual environment. The needed system packages are listed in `system_requirements.txt` or `system_requirements_cuda.txt`.
 
-### 1. Clone Repository
+#### 1. Clone Repository
 
 ```bash
 git clone https://github.com/Stefan-Schmidbauer/voicesnip.git
 cd voicesnip
 ```
 
-### 2. Run the Installer
+#### 2. Run the Installer
 
 VoiceSnip uses a profile-based installation system. Choose the profile that fits your needs:
 
@@ -83,7 +96,54 @@ VoiceSnip uses a profile-based installation system. Choose the profile that fits
 ./install.py --profile full    # For all providers
 ```
 
-### 3. Configuration
+#### 3. Start VoiceSnip
+
+```bash
+./start.sh
+```
+
+### Windows Installation
+
+#### 1. Clone Repository
+
+```powershell
+git clone https://github.com/Stefan-Schmidbauer/voicesnip.git
+cd voicesnip
+```
+
+#### 2. Run the Installer
+
+VoiceSnip uses the same profile-based installation system on Windows:
+
+```powershell
+python install.py
+```
+
+**Available Profiles** (same as Linux):
+
+| Profile      | Description                                                              | Providers Available                                                       |
+| ------------ | ------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| **basis**    | Whisper Local CPU + Deepgram Cloud transcription                         | Whisper Local CPU, Deepgram Cloud                                         |
+| **cuda**     | Local Whisper with GPU support                                           | Whisper Local CPU, Whisper Local GPU, Deepgram Cloud                      |
+| **server**   | Faster Whisper Server via remote/network connection                      | Faster Whisper Server, Deepgram Cloud                                     |
+| **full**     | All providers: Local Whisper (CPU+GPU) + Faster Whisper Server          | Whisper Local CPU, Whisper Local GPU, Faster Whisper Server, Deepgram    |
+
+**Quick Install (Non-Interactive):**
+
+```powershell
+python install.py --profile basis   # For Deepgram + Whisper CPU
+python install.py --profile cuda    # For Deepgram + Whisper CPU/GPU (requires NVIDIA GPU)
+python install.py --profile server  # For Deepgram + Faster Whisper Server
+python install.py --profile full    # For all providers
+```
+
+#### 3. Start VoiceSnip
+
+```powershell
+.\start.ps1
+```
+
+### Configuration (All Platforms)
 
 **For Deepgram (Cloud)**: Create a `.env` file for your API key:
 
@@ -111,18 +171,13 @@ FASTER_WHISPER_ENDPOINT=http://your-server:8000/v1/audio/transcriptions
 
 **Note**: The model is configured on the Faster Whisper Server itself (not in VoiceSnip). The server must be running and accessible before using this provider.
 
-### 4. Start VoiceSnip
-
-```bash
-./start.sh
-```
-
 The application will start with providers available based on your installation profile!
 
 ### Switching Profiles
 
 To switch from one profile to another, simply run the installer with the desired profile:
 
+**Linux:**
 ```bash
 # Switch from basis to cuda (adds GPU support)
 ./install.py --profile cuda
@@ -131,24 +186,50 @@ To switch from one profile to another, simply run the installer with the desired
 ./install.py --profile basis
 ```
 
+**Windows:**
+```powershell
+# Switch from basis to cuda (adds GPU support)
+python install.py --profile cuda
+
+# Switch from cuda to basis (keeps existing packages)
+python install.py --profile basis
+```
+
 By default, the installer reuses the existing virtual environment and adds/updates packages as needed.
 
 If you want to rebuild the virtual environment from scratch (clean install):
 
-```bash
-./install.py --profile cuda --rebuild-venv
-```
+**Linux:** `./install.py --profile cuda --rebuild-venv`
+**Windows:** `python install.py --profile cuda --rebuild-venv`
 
 **Note**: Rebuilding is rarely necessary. Use it only if you encounter issues with the installation.
+
+### Troubleshooting
+
+#### Windows-Specific Issues
+
+- **Python not found**: Install Python from [python.org](https://www.python.org/downloads/) and ensure "Add to PATH" is checked during installation
+- **nvidia-smi not found**: Install NVIDIA drivers from [nvidia.com](https://www.nvidia.com/Download/index.aspx)
+- **Text insertion not working**: Try running VoiceSnip as administrator
+- **Module not found errors**: Ensure you're running via `.\start.ps1` which activates the virtual environment
+
+#### Linux-Specific Issues
+
+- **xdotool not found**: Install with `sudo apt install xdotool`
+- **Permission denied on install.py**: Make it executable with `chmod +x install.py`
 
 ## Usage
 
 ### Start Application
 
-**Recommended**: Use the provided shell script:
-
+**Linux:**
 ```bash
 ./start.sh
+```
+
+**Windows:**
+```powershell
+.\start.ps1
 ```
 
 ### How to Use

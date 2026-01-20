@@ -21,6 +21,8 @@ ENV/
 *~
 .claude/
 .devcontainer/
+.auto-claude*
+.claude_settings
 
 # OS
 .DS_Store

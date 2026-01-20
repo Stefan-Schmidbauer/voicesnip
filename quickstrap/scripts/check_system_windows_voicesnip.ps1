@@ -12,7 +12,18 @@ $warnings = @()
 
 # Check Python version (REQUIRED)
 Write-Host "Checking Python installation..." -ForegroundColor White
+
+# Try 'python' first, then 'py' (Windows Python Launcher)
+$pythonCmd = $null
 $pythonVersion = python --version 2>&1
+if ($pythonVersion -match "Python") {
+    $pythonCmd = "python"
+} else {
+    $pythonVersion = py --version 2>&1
+    if ($pythonVersion -match "Python") {
+        $pythonCmd = "py"
+    }
+}
 
 if ($pythonVersion -match "Python (\d+)\.(\d+)\.(\d+)") {
     $major = [int]$Matches[1]
@@ -46,7 +57,11 @@ if ($vcRedist) {
 
 # Check for pip (REQUIRED for Python package installation)
 Write-Host "Checking pip..." -ForegroundColor White
-$pipVersion = python -m pip --version 2>&1
+if ($pythonCmd) {
+    $pipVersion = & $pythonCmd -m pip --version 2>&1
+} else {
+    $pipVersion = $null
+}
 
 if ($pipVersion -match "pip (\d+\.\d+\.\d+)") {
     Write-Host "  [OK] pip $($Matches[1])" -ForegroundColor Green

@@ -35,3 +35,4 @@ docs/
 
 # Blog assets (drafts, images, article files)
 blog/
+fix-ssl-cert.sh

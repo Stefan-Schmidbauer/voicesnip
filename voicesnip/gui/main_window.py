@@ -25,6 +25,17 @@ from .device_manager import populate_devices
 from .dialogs import show_about_dialog, show_model_download_info
 
 
+def get_resource_path(relative_path: str) -> str:
+    """Get absolute path to resource, works for dev and PyInstaller builds."""
+    if hasattr(sys, '_MEIPASS'):
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    else:
+        # Running in normal Python environment
+        base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    return os.path.join(base_path, relative_path)
+
+
 class VoiceSnipGUI:
     """Tkinter GUI for VoiceSnip"""
 
@@ -121,7 +132,7 @@ class VoiceSnipGUI:
         logo_frame.pack(pady=(0, 20))
 
         try:
-            png_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "assets", "icons", "app", "voicesnip_icon.png")
+            png_path = get_resource_path(os.path.join("assets", "icons", "app", "voicesnip_icon.png"))
             if os.path.exists(png_path):
                 image = Image.open(png_path)
                 photo = ImageTk.PhotoImage(image)

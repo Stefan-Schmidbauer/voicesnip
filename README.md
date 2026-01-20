@@ -141,8 +141,8 @@ py install.py --profile full    # For all providers
 
 #### 3. Start VoiceSnip
 
-```powershell
-.\start.ps1
+```cmd
+start.bat
 ```
 
 ### Configuration (All Platforms)
@@ -230,8 +230,8 @@ If you want to rebuild the virtual environment from scratch (clean install):
 ```
 
 **Windows:**
-```powershell
-.\start.ps1
+```cmd
+start.bat
 ```
 
 ### How to Use

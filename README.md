@@ -116,7 +116,8 @@ cd voicesnip
 VoiceSnip uses the same profile-based installation system on Windows:
 
 ```powershell
-python install.py
+py install.py
+# or: python install.py
 ```
 
 **Available Profiles** (same as Linux):
@@ -131,10 +132,11 @@ python install.py
 **Quick Install (Non-Interactive):**
 
 ```powershell
-python install.py --profile basis   # For Deepgram + Whisper CPU
-python install.py --profile cuda    # For Deepgram + Whisper CPU/GPU (requires NVIDIA GPU)
-python install.py --profile server  # For Deepgram + Faster Whisper Server
-python install.py --profile full    # For all providers
+py install.py --profile basis   # For Deepgram + Whisper CPU
+py install.py --profile cuda    # For Deepgram + Whisper CPU/GPU (requires NVIDIA GPU)
+py install.py --profile server  # For Deepgram + Faster Whisper Server
+py install.py --profile full    # For all providers
+# Note: Use 'python' instead of 'py' if that's how Python is available on your system
 ```
 
 #### 3. Start VoiceSnip
@@ -189,10 +191,10 @@ To switch from one profile to another, simply run the installer with the desired
 **Windows:**
 ```powershell
 # Switch from basis to cuda (adds GPU support)
-python install.py --profile cuda
+py install.py --profile cuda  # or: python install.py --profile cuda
 
 # Switch from cuda to basis (keeps existing packages)
-python install.py --profile basis
+py install.py --profile basis
 ```
 
 By default, the installer reuses the existing virtual environment and adds/updates packages as needed.
@@ -200,7 +202,7 @@ By default, the installer reuses the existing virtual environment and adds/updat
 If you want to rebuild the virtual environment from scratch (clean install):
 
 **Linux:** `./install.py --profile cuda --rebuild-venv`
-**Windows:** `python install.py --profile cuda --rebuild-venv`
+**Windows:** `py install.py --profile cuda --rebuild-venv` (or `python` instead of `py`)
 
 **Note**: Rebuilding is rarely necessary. Use it only if you encounter issues with the installation.
 

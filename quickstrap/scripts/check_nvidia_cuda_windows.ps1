@@ -16,7 +16,7 @@ $nvidiaSmi = Get-Command nvidia-smi -ErrorAction SilentlyContinue
 
 if (-not $nvidiaSmi) {
     Write-Host ""
-    Write-Host "✗ Error: NVIDIA driver not found (nvidia-smi not available)" -ForegroundColor Red
+    Write-Host "[X] Error: NVIDIA driver not found (nvidia-smi not available)" -ForegroundColor Red
     Write-Host ""
     Write-Host "The CUDA profile requires NVIDIA GPU drivers." -ForegroundColor Yellow
     Write-Host ""
@@ -32,7 +32,7 @@ if (-not $nvidiaSmi) {
     exit 1
 }
 
-Write-Host "  ✓ nvidia-smi found: $($nvidiaSmi.Path)" -ForegroundColor Green
+Write-Host "  [OK] nvidia-smi found: $($nvidiaSmi.Path)" -ForegroundColor Green
 Write-Host ""
 
 # Run nvidia-smi to check GPU accessibility
@@ -53,7 +53,7 @@ try {
     }
 
     Write-Host ""
-    Write-Host "✓ NVIDIA driver detected successfully!" -ForegroundColor Green
+    Write-Host "[OK] NVIDIA driver detected successfully!" -ForegroundColor Green
     Write-Host ""
     Write-Host "GPU Information:" -ForegroundColor Cyan
     Write-Host "--------------------------------------" -ForegroundColor Cyan
@@ -81,11 +81,11 @@ try {
 
     if ($LASTEXITCODE -eq 0) {
         $computeCap = ($cudaVersion -split "`n")[0].Trim()
-        Write-Host "  ✓ Compute Capability: $computeCap" -ForegroundColor Green
+        Write-Host "  [OK] Compute Capability: $computeCap" -ForegroundColor Green
         Write-Host ""
     }
 
-    Write-Host "✓ CUDA requirements check passed!" -ForegroundColor Green
+    Write-Host "[OK] CUDA requirements check passed!" -ForegroundColor Green
     Write-Host ""
     Write-Host "Your system is ready for GPU-accelerated transcription." -ForegroundColor Green
     Write-Host ""
@@ -94,7 +94,7 @@ try {
 
 } catch {
     Write-Host ""
-    Write-Host "✗ Error: nvidia-smi found but unable to communicate with GPU" -ForegroundColor Red
+    Write-Host "[X] Error: nvidia-smi found but unable to communicate with GPU" -ForegroundColor Red
     Write-Host ""
     Write-Host "Error details: $_" -ForegroundColor Yellow
     Write-Host ""

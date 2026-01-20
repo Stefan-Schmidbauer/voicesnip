@@ -19,14 +19,45 @@ from typing import List, Tuple, Dict, Optional
 
 class Colors:
     """ANSI color codes for terminal output"""
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
+    # Check if we're on Windows and if ANSI is supported
+    _use_colors = True
+
+    if sys.platform == 'win32':
+        # Try to enable ANSI support on Windows 10+
+        try:
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            # Enable VIRTUAL_TERMINAL_PROCESSING for stdout
+            STD_OUTPUT_HANDLE = -11
+            ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
+            handle = kernel32.GetStdHandle(STD_OUTPUT_HANDLE)
+            mode = ctypes.c_ulong()
+            if kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+                kernel32.SetConsoleMode(handle, mode.value | ENABLE_VIRTUAL_TERMINAL_PROCESSING)
+            else:
+                _use_colors = False
+        except Exception:
+            _use_colors = False
+
+    if _use_colors:
+        HEADER = '\033[95m'
+        OKBLUE = '\033[94m'
+        OKCYAN = '\033[96m'
+        OKGREEN = '\033[92m'
+        WARNING = '\033[93m'
+        FAIL = '\033[91m'
+        ENDC = '\033[0m'
+        BOLD = '\033[1m'
+    else:
+        # No colors on unsupported terminals
+        HEADER = ''
+        OKBLUE = ''
+        OKCYAN = ''
+        OKGREEN = ''
+        WARNING = ''
+        FAIL = ''
+        ENDC = ''
+        BOLD = ''
 
 
 def print_header(text: str):
@@ -38,22 +69,22 @@ def print_header(text: str):
 
 def print_success(text: str):
     """Print success message"""
-    print(f"{Colors.OKGREEN}✓ {text}{Colors.ENDC}")
+    print(f"{Colors.OKGREEN}[OK] {text}{Colors.ENDC}")
 
 
 def print_error(text: str):
     """Print error message"""
-    print(f"{Colors.FAIL}✗ {text}{Colors.ENDC}")
+    print(f"{Colors.FAIL}[X] {text}{Colors.ENDC}")
 
 
 def print_warning(text: str):
     """Print warning message"""
-    print(f"{Colors.WARNING}⚠ {text}{Colors.ENDC}")
+    print(f"{Colors.WARNING}[!] {text}{Colors.ENDC}")
 
 
 def print_info(text: str):
     """Print info message"""
-    print(f"{Colors.OKCYAN}ℹ {text}{Colors.ENDC}")
+    print(f"{Colors.OKCYAN}[i] {text}{Colors.ENDC}")
 
 
 def get_venv_paths(venv_path: Path) -> Tuple[Path, Path]:
@@ -525,29 +556,43 @@ def install_python_packages(venv_path: Path, requirements_file: str) -> bool:
     print_info(f"Installing Python packages for {platform_display} from {requirements_file}...")
     print_info("This may take several minutes...")
 
-    # Run pip with progress
-    result = subprocess.run(
-        [str(pip_exe), 'install', '-r', requirements_file],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True
-    )
+    try:
+        # Run pip with progress
+        result = subprocess.run(
+            [str(pip_exe), 'install', '-r', requirements_file],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True
+        )
 
-    # Write full output to log
-    with open('install.log', 'a') as f:
-        f.write(f"\n{'=' * 70}\n")
-        f.write(f"Installation log: {datetime.now().isoformat()}\n")
-        f.write(f"Requirements: {requirements_file}\n")
-        f.write(f"{'=' * 70}\n")
-        f.write(result.stdout)
+        # Write full output to log
+        output = result.stdout or ""
+        with open('install.log', 'a', encoding='utf-8') as f:
+            f.write(f"\n{'=' * 70}\n")
+            f.write(f"Installation log: {datetime.now().isoformat()}\n")
+            f.write(f"Requirements: {requirements_file}\n")
+            f.write(f"{'=' * 70}\n")
+            f.write(output)
 
-    if result.returncode != 0:
-        print_error("Failed to install Python packages")
-        print_info("Check install.log for details")
+        if result.returncode != 0:
+            print_error("Failed to install Python packages")
+            print_info("Check install.log for details")
+            # Also print last few lines of output for immediate feedback
+            if output:
+                lines = output.strip().split('\n')
+                print_error("Last output lines:")
+                for line in lines[-10:]:
+                    print(f"  {line}")
+            return False
+
+        print_success("Python packages installed successfully")
+        return True
+
+    except Exception as e:
+        print_error(f"Failed to run pip: {e}")
+        print_info(f"pip path: {pip_exe}")
+        print_info(f"requirements: {requirements_file}")
         return False
-
-    print_success("Python packages installed successfully")
-    return True
 
 
 def validate_profile_files(profile: Dict) -> List[str]:

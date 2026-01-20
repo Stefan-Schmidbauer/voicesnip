@@ -29,7 +29,7 @@ Set-Location $ProjectRoot
 
 # Check if venv exists
 if (-not (Test-Path "venv")) {
-    Write-Host "✗ Error: Virtual environment not found" -ForegroundColor Red
+    Write-Host "[X] Error: Virtual environment not found" -ForegroundColor Red
     Write-Host ""
     Write-Host "Please run the installer first:"
     Write-Host "  python install.py"
@@ -41,7 +41,7 @@ $VenvActivate = "venv\Scripts\Activate.ps1"
 if (Test-Path $VenvActivate) {
     & $VenvActivate
 } else {
-    Write-Host "✗ Error: Virtual environment activation script not found" -ForegroundColor Red
+    Write-Host "[X] Error: Virtual environment activation script not found" -ForegroundColor Red
     exit 1
 }
 
@@ -49,7 +49,7 @@ if (Test-Path $VenvActivate) {
 try {
     python -c "import PyInstaller" 2>$null
 } catch {
-    Write-Host "⚠ PyInstaller not found in virtual environment" -ForegroundColor Yellow
+    Write-Host "[!] PyInstaller not found in virtual environment" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "Installing PyInstaller..."
     pip install pyinstaller
@@ -60,7 +60,7 @@ try {
 $ConfigFile = "quickstrap\installation_profiles.ini"
 
 if (-not (Test-Path $ConfigFile)) {
-    Write-Host "✗ Error: Configuration file not found: $ConfigFile" -ForegroundColor Red
+    Write-Host "[X] Error: Configuration file not found: $ConfigFile" -ForegroundColor Red
     exit 1
 }
 
@@ -83,14 +83,14 @@ print(config.get('metadata', 'start_command', fallback='python main.py'))
 $MainScript = $StartCommand -replace '^python3?\s+', '' -split '\s+' | Select-Object -First 1
 
 if (-not (Test-Path $MainScript)) {
-    Write-Host "✗ Error: Main script not found: $MainScript" -ForegroundColor Red
+    Write-Host "[X] Error: Main script not found: $MainScript" -ForegroundColor Red
     Write-Host ""
     Write-Host "Please verify the 'start_command' in $ConfigFile"
     Write-Host "Current start_command: $StartCommand"
     exit 1
 }
 
-Write-Host "✓ Configuration loaded" -ForegroundColor Green
+Write-Host "[OK] Configuration loaded" -ForegroundColor Green
 Write-Host "  Application: $AppName"
 Write-Host "  Main script: $MainScript"
 Write-Host ""
@@ -99,14 +99,14 @@ Write-Host ""
 $SpecFile = "quickstrap\pyinstaller.spec"
 
 if (Test-Path $SpecFile) {
-    Write-Host "ℹ Using existing PyInstaller spec file: $SpecFile" -ForegroundColor Cyan
+    Write-Host "[i] Using existing PyInstaller spec file: $SpecFile" -ForegroundColor Cyan
     Write-Host ""
 
     # Build using spec file
     Write-Host "Building EXE with custom configuration..."
     pyinstaller --clean --noconfirm $SpecFile
 } else {
-    Write-Host "ℹ No spec file found, using automatic build" -ForegroundColor Cyan
+    Write-Host "[i] No spec file found, using automatic build" -ForegroundColor Cyan
     Write-Host ""
 
     # Auto-detect common patterns for additional data
@@ -116,7 +116,7 @@ if (Test-Path $SpecFile) {
     $CommonDirs = @('config', 'templates', 'static', 'data', 'resources')
     foreach ($dir in $CommonDirs) {
         if (Test-Path $dir) {
-            Write-Host "✓ Found directory: $dir (will be included)" -ForegroundColor Green
+            Write-Host "[OK] Found directory: $dir (will be included)" -ForegroundColor Green
             $AddDataArgs += "--add-data"
             $AddDataArgs += "$dir;$dir"
         }
@@ -127,7 +127,7 @@ if (Test-Path $SpecFile) {
     $IconFiles = @('app.ico', 'icon.ico', 'application.ico')
     foreach ($icon in $IconFiles) {
         if (Test-Path $icon) {
-            Write-Host "✓ Found icon: $icon" -ForegroundColor Green
+            Write-Host "[OK] Found icon: $icon" -ForegroundColor Green
             $IconArg = "--icon=$icon"
             break
         }
@@ -159,7 +159,7 @@ $ExePath = "dist\$ExeName"
 if (Test-Path $ExePath) {
     Write-Host ""
     Write-Host "======================================" -ForegroundColor Blue
-    Write-Host "✓ Build successful!" -ForegroundColor Green
+    Write-Host "[OK] Build successful!" -ForegroundColor Green
     Write-Host "======================================" -ForegroundColor Blue
     Write-Host ""
     Write-Host "EXE location: dist\"
@@ -173,7 +173,7 @@ if (Test-Path $ExePath) {
     Write-Host "  - Linux: Run ./quickstrap/scripts/build_linux_binary.sh"
 } else {
     Write-Host ""
-    Write-Host "✗ Build failed" -ForegroundColor Red
+    Write-Host "[X] Build failed" -ForegroundColor Red
     Write-Host ""
     Write-Host "Check the output above for errors."
     exit 1

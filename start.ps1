@@ -19,16 +19,24 @@ config.read('$File')
 print(config.get('$Section', '$Key', fallback='$Default'))
 "@
 
+    # Try 'python' first, then 'py' (Windows Python Launcher)
     try {
         $result = python -c $pythonCode 2>$null
-        if ($result) {
+        if ($LASTEXITCODE -eq 0 -and $result) {
             return $result.Trim()
         }
-        return $Default
     }
-    catch {
-        return $Default
+    catch {}
+
+    try {
+        $result = py -c $pythonCode 2>$null
+        if ($LASTEXITCODE -eq 0 -and $result) {
+            return $result.Trim()
+        }
     }
+    catch {}
+
+    return $Default
 }
 
 # Find the script directory and change to it
@@ -41,6 +49,7 @@ $ConfigDir = Read-IniValue -File "quickstrap/installation_profiles.ini" -Section
 $StartCmd = Read-IniValue -File "quickstrap/installation_profiles.ini" -Section "metadata" -Key "start_command" -Default "python main.py"
 
 # Convert python3 to python for Windows (python3 is not standard on Windows)
+# After venv activation, 'python' should work from venv Scripts folder
 $StartCmd = $StartCmd -replace "^python3\s", "python "
 $StartCmd = $StartCmd -replace "\spython3\s", " python "
 
@@ -57,7 +66,7 @@ if (-not (Test-Path $VenvPath)) {
 
 # Check if installation config exists
 # Windows equivalent of ~/.config/$CONFIG_DIR/installation_profile.ini
-$ConfigFile = Join-Path $env:LOCALAPPDATA $ConfigDir "installation_profile.ini"
+$ConfigFile = Join-Path (Join-Path $env:LOCALAPPDATA $ConfigDir) "installation_profile.ini"
 if (-not (Test-Path $ConfigFile)) {
     Write-Host "Error: Installation configuration not found." -ForegroundColor Red
     Write-Host ""
@@ -69,7 +78,7 @@ if (-not (Test-Path $ConfigFile)) {
 }
 
 # Activate virtual environment
-$VenvActivate = Join-Path $VenvPath "Scripts" "Activate.ps1"
+$VenvActivate = Join-Path (Join-Path $VenvPath "Scripts") "Activate.ps1"
 if (Test-Path $VenvActivate) {
     & $VenvActivate
 }

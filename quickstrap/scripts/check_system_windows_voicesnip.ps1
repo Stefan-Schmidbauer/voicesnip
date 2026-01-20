@@ -20,14 +20,14 @@ if ($pythonVersion -match "Python (\d+)\.(\d+)\.(\d+)") {
     $patch = [int]$Matches[3]
 
     if ($major -eq 3 -and $minor -ge 8) {
-        Write-Host "  ✓ Python $major.$minor.$patch" -ForegroundColor Green
+        Write-Host "  [OK] Python $major.$minor.$patch" -ForegroundColor Green
         $installed += "Python $major.$minor.$patch (required: Python 3.8+)"
     } else {
-        Write-Host "  ✗ Python $major.$minor.$patch (too old)" -ForegroundColor Red
+        Write-Host "  [X] Python $major.$minor.$patch (too old)" -ForegroundColor Red
         $missing += "Python 3.8+ (found: Python $major.$minor.$patch)"
     }
 } else {
-    Write-Host "  ✗ Python not found or not in PATH" -ForegroundColor Red
+    Write-Host "  [X] Python not found or not in PATH" -ForegroundColor Red
     $missing += "Python 3.8+"
 }
 
@@ -36,10 +36,10 @@ Write-Host "Checking Visual C++ Redistributables (optional)..." -ForegroundColor
 
 $vcRedist = Get-ItemProperty "HKLM:\Software\Microsoft\VisualStudio\*\VC\Runtimes\*" -ErrorAction SilentlyContinue
 if ($vcRedist) {
-    Write-Host "  ✓ Visual C++ Redistributables found" -ForegroundColor Green
+    Write-Host "  [OK] Visual C++ Redistributables found" -ForegroundColor Green
     $installed += "Visual C++ Redistributables (optional - improves native extensions)"
 } else {
-    Write-Host "  ! Visual C++ Redistributables not found (optional)" -ForegroundColor Yellow
+    Write-Host "  [!] Visual C++ Redistributables not found (optional)" -ForegroundColor Yellow
     $warnings += "Visual C++ Redistributables recommended for optimal performance"
     $warnings += "  Download from: https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist"
 }
@@ -49,10 +49,10 @@ Write-Host "Checking pip..." -ForegroundColor White
 $pipVersion = python -m pip --version 2>&1
 
 if ($pipVersion -match "pip (\d+\.\d+\.\d+)") {
-    Write-Host "  ✓ pip $($Matches[1])" -ForegroundColor Green
+    Write-Host "  [OK] pip $($Matches[1])" -ForegroundColor Green
     $installed += "pip $($Matches[1])"
 } else {
-    Write-Host "  ✗ pip not found" -ForegroundColor Red
+    Write-Host "  [X] pip not found" -ForegroundColor Red
     $missing += "pip (Python package manager)"
 }
 
@@ -66,7 +66,7 @@ if ($installed.Count -gt 0) {
     Write-Host ""
     Write-Host "Installed Requirements:" -ForegroundColor Green
     foreach ($item in $installed) {
-        Write-Host "  ✓ $item" -ForegroundColor Green
+        Write-Host "  [OK] $item" -ForegroundColor Green
     }
 }
 
@@ -74,7 +74,7 @@ if ($warnings.Count -gt 0) {
     Write-Host ""
     Write-Host "Optional Components (Warnings):" -ForegroundColor Yellow
     foreach ($warning in $warnings) {
-        Write-Host "  ! $warning" -ForegroundColor Yellow
+        Write-Host "  [!] $warning" -ForegroundColor Yellow
     }
 }
 
@@ -82,7 +82,7 @@ if ($missing.Count -gt 0) {
     Write-Host ""
     Write-Host "Missing Requirements:" -ForegroundColor Red
     foreach ($item in $missing) {
-        Write-Host "  ✗ $item" -ForegroundColor Red
+        Write-Host "  [X] $item" -ForegroundColor Red
     }
     Write-Host ""
     Write-Host "Please install missing requirements before continuing." -ForegroundColor Red
@@ -91,7 +91,7 @@ if ($missing.Count -gt 0) {
 }
 
 Write-Host ""
-Write-Host "✓ All required components are installed!" -ForegroundColor Green
+Write-Host "[OK] All required components are installed!" -ForegroundColor Green
 Write-Host ""
 
 exit 0

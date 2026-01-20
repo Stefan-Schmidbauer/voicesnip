@@ -1,0 +1,62 @@
+name: Build Windows EXE
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build EXE with PyInstaller
+        run: |
+          pyinstaller --onefile --name VoiceSnip main.py
+
+      - name: Prepare distribution package
+        run: |
+          mkdir VoiceSnip-Windows
+          copy dist\VoiceSnip.exe VoiceSnip-Windows\
+          copy .env.example VoiceSnip-Windows\
+          copy README.md VoiceSnip-Windows\
+          copy LICENSE VoiceSnip-Windows\
+          copy voicesnip.png VoiceSnip-Windows\
+        shell: cmd
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: VoiceSnip-Windows
+          path: VoiceSnip-Windows/
+          retention-days: 30
+
+      - name: Create Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            VoiceSnip-Windows/VoiceSnip.exe
+            VoiceSnip-Windows/.env.example
+            VoiceSnip-Windows/README.md
+            VoiceSnip-Windows/LICENSE
+            VoiceSnip-Windows/voicesnip.png
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

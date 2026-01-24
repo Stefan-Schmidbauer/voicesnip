@@ -45,24 +45,19 @@ jobs:
 
       - name: Prepare distribution package
         run: |
-          mkdir ${{ matrix.name }}
-          copy dist\VoiceSnip.exe ${{ matrix.name }}\
-          copy .env.example ${{ matrix.name }}\
-          copy README.md ${{ matrix.name }}\
-          copy LICENSE ${{ matrix.name }}\
-          if exist voicesnip.png copy voicesnip.png ${{ matrix.name }}\
+          mkdir dist-package
+          copy dist\VoiceSnip.exe dist-package\
+          copy .env.example dist-package\voicesnip.ini
+          copy README.md dist-package\
+          copy LICENSE dist-package\
+          if exist voicesnip.png copy voicesnip.png dist-package\
         shell: cmd
-
-      - name: Create ZIP archive
-        run: |
-          Compress-Archive -Path "${{ matrix.name }}" -DestinationPath "${{ matrix.name }}.zip"
-        shell: pwsh
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}
-          path: ${{ matrix.name }}.zip
+          path: dist-package/*
           retention-days: 30
 
   # =============================================================================
@@ -159,21 +154,20 @@ jobs:
         run: |
           ARCH=x86_64 ./appimagetool-x86_64.AppImage --appimage-extract-and-run AppDir ${{ matrix.name }}.AppImage
 
-      - name: Create distribution package
+      - name: Prepare distribution package
         run: |
-          mkdir ${{ matrix.name }}
-          cp ${{ matrix.name }}.AppImage ${{ matrix.name }}/
-          cp .env.example ${{ matrix.name }}/
-          cp README.md ${{ matrix.name }}/
-          cp LICENSE ${{ matrix.name }}/
-          [ -f voicesnip.png ] && cp voicesnip.png ${{ matrix.name }}/ || true
-          tar -czvf ${{ matrix.name }}.tar.gz ${{ matrix.name }}
+          mkdir dist-package
+          cp ${{ matrix.name }}.AppImage dist-package/
+          cp .env.example dist-package/.env
+          cp README.md dist-package/
+          cp LICENSE dist-package/
+          [ -f voicesnip.png ] && cp voicesnip.png dist-package/ || true
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}
-          path: ${{ matrix.name }}.tar.gz
+          path: dist-package/*
           retention-days: 30
 
   # =============================================================================
@@ -193,14 +187,35 @@ jobs:
       - name: List artifacts
         run: |
           echo "Downloaded artifacts:"
-          find artifacts -type f \( -name "*.zip" -o -name "*.tar.gz" \)
+          find artifacts -type f
+          echo ""
+          echo "Directory structure:"
+          ls -la artifacts/
+
+      - name: Create archives for release
+        run: |
+          cd artifacts
+          for dir in */; do
+            name="${dir%/}"
+            if [[ "$name" == *"Windows"* ]]; then
+              echo "Creating ZIP for $name"
+              zip -r "../${name}.zip" "$name"
+            else
+              echo "Creating tar.gz for $name"
+              tar -czvf "../${name}.tar.gz" "$name"
+            fi
+          done
+          cd ..
+          echo ""
+          echo "Created archives:"
+          ls -la *.zip *.tar.gz 2>/dev/null || true
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            artifacts/**/*.zip
-            artifacts/**/*.tar.gz
+            *.zip
+            *.tar.gz
           generate_release_notes: true
           body: |
             ## Downloads
@@ -224,14 +239,14 @@ jobs:
             ### Windows
             1. Download the appropriate ZIP for your system
             2. Extract to a folder of your choice
-            3. Copy `.env.example` to `.env` and configure your API keys
+            3. Edit `voicesnip.ini` and add your API keys (optional, only for Deepgram)
             4. Run `VoiceSnip.exe`
 
             ### Linux
             1. Download the appropriate tar.gz for your system
             2. Extract: `tar -xzf VoiceSnip-Linux*.tar.gz`
-            3. Copy `.env.example` to `.env` and configure your API keys
-            4. Make executable: `chmod +x VoiceSnip-Linux*.AppImage`
+            3. Edit `.env` and add your API keys (optional, only for Deepgram)
+            4. Make executable: `chmod +x *.AppImage`
             5. Run: `./VoiceSnip-Linux*.AppImage`
 
             ---

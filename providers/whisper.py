@@ -196,7 +196,7 @@ class WhisperProvider(STTProvider):
             error_str = str(e).lower()
             if "cudnn" in error_str or "cuda" in error_str:
                 print(f"CUDA/cuDNN error during transcription: {e}")
-                print("Consider setting WHISPER_DEVICE=cpu in your .env file")
+                print("Consider setting WHISPER_DEVICE=cpu in your config file (.env or voicesnip.ini)")
             else:
                 print(f"Whisper transcription error: {e}")
             return None

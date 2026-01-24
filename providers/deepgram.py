@@ -37,7 +37,7 @@ class DeepgramProvider(STTProvider):
     def validate_config(self) -> None:
         """Validate Deepgram configuration"""
         if not self.api_key or self.api_key == "your_api_key_here":
-            raise ValueError("DEEPGRAM_API_KEY not set in .env file")
+            raise ValueError("DEEPGRAM_API_KEY not set in config file (.env or voicesnip.ini)")
         if not self.model:
             raise ValueError("DEEPGRAM_MODEL not set")
         if not self.endpoint:

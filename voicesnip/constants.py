@@ -101,8 +101,25 @@ KEY_NAME_MAP = {
 }
 
 # Language mapping constants
-LANGUAGE_CODE_TO_INDEX = {'de': 0, 'en': 1, '': 2}
-LANGUAGE_INDEX_TO_CODE = {0: 'de', 1: 'en', 2: ''}
+# Only languages well-supported by both Whisper (all models) and Deepgram
+# Alphabetically sorted by English name, Auto-Detection at the end
+LANGUAGES = [
+    ('Dutch', 'nl'),
+    ('English', 'en'),
+    ('French', 'fr'),
+    ('German', 'de'),
+    ('Italian', 'it'),
+    ('Japanese', 'ja'),
+    ('Korean', 'ko'),
+    ('Portuguese', 'pt'),
+    ('Russian', 'ru'),
+    ('Spanish', 'es'),
+    ('Auto-Detection', ''),
+]
+
+LANGUAGE_NAMES = [lang[0] for lang in LANGUAGES]
+LANGUAGE_CODE_TO_INDEX = {lang[1]: idx for idx, lang in enumerate(LANGUAGES)}
+LANGUAGE_INDEX_TO_CODE = {idx: lang[1] for idx, lang in enumerate(LANGUAGES)}
 
 # Default hotkey
 DEFAULT_HOTKEY = "ctrl+space"

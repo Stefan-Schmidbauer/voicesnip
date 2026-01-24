@@ -17,6 +17,7 @@ from ..constants import (
     DEFAULT_HOTKEY,
     LANGUAGE_CODE_TO_INDEX,
     LANGUAGE_INDEX_TO_CODE,
+    LANGUAGE_NAMES,
 )
 from ..core import VoiceSnipCore
 from ..hotkey_manager import format_hotkey
@@ -206,8 +207,9 @@ class VoiceSnipGUI:
         lang_frame.pack(fill=tk.X, pady=(0, 10))
 
         self.language_combo = ttk.Combobox(lang_frame, state="readonly", width=50)
-        self.language_combo['values'] = ("German", "English", "Auto-Detection")
-        self.language_combo.current(0)
+        self.language_combo['values'] = LANGUAGE_NAMES
+        # Default to German (index 3 in alphabetical list)
+        self.language_combo.current(LANGUAGE_CODE_TO_INDEX.get('de', 0))
         self.language_combo.pack(fill=tk.X)
 
         # Hotkey configuration

@@ -112,9 +112,10 @@ Your application can detect which features were installed by reading the configu
 from pathlib import Path
 from configparser import ConfigParser
 
-def get_installed_features(config_dir_name: str) -> set:
-    """Read installed features from Quickstrap config."""
-    config_file = Path.home() / '.config' / config_dir_name / 'installation_profile.ini'
+def get_installed_features(app_name: str) -> set:
+    """Read installed features from Quickstrap config (stored in project directory)."""
+    # Config file is in the project directory with app-specific name
+    config_file = Path(__file__).parent / f'{app_name.lower()}_profile.ini'
 
     if not config_file.exists():
         return set()
@@ -126,7 +127,7 @@ def get_installed_features(config_dir_name: str) -> set:
     return set(f.strip() for f in features_str.split(',') if f.strip())
 
 # Usage:
-features = get_installed_features('my-app')
+features = get_installed_features('my-app')  # looks for ./my-app_profile.ini
 
 if 'gui' in features:
     import tkinter
@@ -137,7 +138,7 @@ if 'pdf' in features:
     # Enable PDF generation
 ```
 
-The configuration is stored at: `~/.config/{your-config-dir}/installation_profile.ini`
+The configuration is stored in the project directory: `./{app_name}_profile.ini` (e.g., `myapp_profile.ini`)
 
 ## Pre-Install Scripts
 
@@ -253,7 +254,7 @@ If the script fails, the installation fails.
 Post-install scripts have access to these environment variables:
 
 - `QUICKSTRAP_APP_NAME` - The application name from metadata
-- `QUICKSTRAP_CONFIG_DIR` - The config directory name from metadata
+- `QUICKSTRAP_CONFIG_DIR` - Path to the project directory (where config files are stored)
 - `VIRTUAL_ENV` - Path to the virtual environment (e.g., `/path/to/project/venv`)
 - `PATH` - Automatically updated to include the venv's `bin` directory first. This ensures that when your script calls `python`, `pip`, or any installed Python tools, the versions from the virtual environment are used instead of system versions. You can directly use commands like `python script.py` without specifying the full venv path.
 
@@ -262,8 +263,8 @@ Example usage in a script:
 ```bash
 #!/bin/bash
 echo "Setting up $QUICKSTRAP_APP_NAME..."
-CONFIG_PATH="$HOME/.config/$QUICKSTRAP_CONFIG_DIR"
-mkdir -p "$CONFIG_PATH"
+# Config files are in the project directory
+CONFIG_PATH="$QUICKSTRAP_CONFIG_DIR"
 ```
 
 ## Usage
@@ -545,8 +546,8 @@ Global application configuration:
 
 | Field           | Required | Description                                                     |
 | --------------- | -------- | --------------------------------------------------------------- |
-| `app_name`      | Yes      | Display name of your application                                |
-| `config_dir`    | Yes      | Directory name under `~/.config/` for storing installation info |
+| `app_name`      | Yes      | Display name of your application (also used for config filename)|
+| `config_dir`    | No       | Deprecated - config is now stored in project directory          |
 | `start_command` | Yes      | Command to start your application (e.g., `python3 src/main.py`) |
 | `after_install` | No       | Message displayed after successful installation                 |
 
@@ -569,7 +570,7 @@ Installation profile configuration:
 ```ini
 [metadata]
 app_name = My Amazing App
-config_dir = my-amazing-app
+# config_dir is deprecated - config is stored in project directory
 start_command = python3 src/main.py
 after_install = Start with: ./start.sh
 
@@ -730,7 +731,7 @@ Quickstrap supports **Linux** (Debian/Ubuntu-based) and **Windows** (10/11 with 
 | Feature detection | ✓ | ✓ |
 | System package verification | ✓ (dpkg) | ✗ (manual) |
 | Pre/Post-install bash scripts | ✓ | ✗ (skipped) |
-| Config file location | `~/.config/` | `%LOCALAPPDATA%` |
+| Config file location | Project directory | Project directory |
 
 ### Adding Python Packages
 

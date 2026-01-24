@@ -109,27 +109,17 @@ def get_venv_paths(venv_path: Path) -> Tuple[Path, Path]:
     return pip_exe, python_exe
 
 
-def get_config_dir(config_dir_name: str) -> Path:
-    """Get platform-appropriate configuration directory.
+def get_config_dir() -> Path:
+    """Get project directory for configuration files.
 
-    On Windows: uses LOCALAPPDATA environment variable (fallback to home directory).
-    On Linux/macOS: uses ~/.config/
-
-    Args:
-        config_dir_name: Name of the config directory (e.g., 'myapp')
+    Config files are stored in the project directory (where install.py is located),
+    making the installation portable and allowing pre-built binaries to include
+    their configuration.
 
     Returns:
-        Path to the configuration directory
+        Path to the project directory (current working directory)
     """
-    if sys.platform == 'win32':
-        # Use LOCALAPPDATA on Windows (local to machine, better for quickstrap)
-        appdata = os.environ.get('LOCALAPPDATA')
-        if appdata:
-            return Path(appdata) / config_dir_name
-        else:
-            return Path.home() / config_dir_name
-    else:
-        return Path.home() / '.config' / config_dir_name
+    return Path.cwd()
 
 
 def get_platform_name() -> str:
@@ -748,24 +738,26 @@ def run_pre_install_scripts(scripts: str, profile_name: str) -> bool:
         return True
 
 
-def write_installation_config(profile_name: str, features: str, config_dir_name: str) -> Path:
-    """Write installation config to platform-appropriate config directory.
+def write_installation_config(profile_name: str, features: str, app_name: str) -> Path:
+    """Write installation config to project directory.
 
-    On Windows: %APPDATA%/{config_dir_name}/
-    On Linux/macOS: ~/.config/{config_dir_name}/
+    Config file is stored in the project directory with app-specific name,
+    making the installation portable.
 
     Args:
         profile_name: Name of installed profile
         features: Comma-separated feature list
-        config_dir_name: Name of the config directory (from metadata)
+        app_name: Application name (from metadata, used for config filename)
 
     Returns:
         Path to the written config file
     """
-    config_dir = get_config_dir(config_dir_name)
-    config_dir.mkdir(parents=True, exist_ok=True)
+    config_dir = get_config_dir()
+    # No need to create directory - we're in the project directory
 
-    config_file = config_dir / 'installation_profile.ini'
+    # App-specific config filename (lowercase)
+    config_filename = f"{app_name.lower()}_profile.ini"
+    config_file = config_dir / config_filename
 
     config = ConfigParser()
     config['installation'] = {
@@ -828,7 +820,7 @@ def main():
 
     # Get app name from metadata or use generic name
     app_name = metadata.get('app_name', 'Application')
-    config_dir_name = metadata.get('config_dir', 'app')
+    # Note: config_dir is no longer used - config is stored in project directory
 
     # Now create parser with dynamic choices
     parser = argparse.ArgumentParser(
@@ -952,7 +944,8 @@ Examples:
 
         # Check metadata
         print_info("Validating metadata")
-        required_metadata = ['app_name', 'config_dir']
+        # Note: config_dir is no longer required as config is stored in project directory
+        required_metadata = ['app_name']
         missing_metadata = [f for f in required_metadata if f not in metadata or not metadata[f].strip()]
 
         # Check for start_command (platform-specific or generic)
@@ -989,9 +982,8 @@ Examples:
             print_info("Run ./install.py first to install the application")
             sys.exit(1)
 
-        # Determine which profile is installed
-        config_dir = Path.home() / '.config' / config_dir_name
-        config_file = config_dir / 'installation_profile.ini'
+        # Determine which profile is installed (config in project directory)
+        config_file = get_config_dir() / f'{app_name.lower()}_profile.ini'
 
         if not config_file.exists():
             print_error("Installation profile not found")
@@ -1031,9 +1023,8 @@ Examples:
 
     # Update mode
     if args.update_python:
-        # Determine profile to update
-        config_dir = Path.home() / '.config' / config_dir_name
-        config_file = config_dir / 'installation_profile.ini'
+        # Determine profile to update (config in project directory)
+        config_file = get_config_dir() / f'{app_name.lower()}_profile.ini'
 
         if not config_file.exists():
             print_error("Installation profile not found")
@@ -1244,7 +1235,7 @@ Examples:
             path_sep = ';' if sys.platform == 'win32' else ':'
             env['PATH'] = f"{pip_exe.parent}{path_sep}{env['PATH']}"
             env['QUICKSTRAP_APP_NAME'] = app_name
-            env['QUICKSTRAP_CONFIG_DIR'] = config_dir_name
+            env['QUICKSTRAP_CONFIG_DIR'] = str(get_config_dir())  # Project directory
 
             # Run script based on platform
             if platform == 'windows':
@@ -1283,7 +1274,7 @@ Examples:
     config_path = write_installation_config(
         profile_name=profile_name,
         features=profile['features'],
-        config_dir_name=config_dir_name
+        app_name=app_name
     )
 
     # Success!

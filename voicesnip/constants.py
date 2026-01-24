@@ -12,18 +12,18 @@ from pynput import keyboard
 
 
 def get_platform_config_dir():
-    """Get platform-appropriate config directory.
+    """Get project directory for configuration files.
 
-    Windows: %LOCALAPPDATA%/voicesnip/
-    Linux: ~/.config/voicesnip/
+    Config files are stored in the project directory for portability.
+    For PyInstaller builds, this is the directory containing the executable.
+    For normal Python execution, this is the project root directory.
     """
-    if sys.platform == 'win32':
-        appdata = os.environ.get('LOCALAPPDATA')
-        if appdata:
-            return Path(appdata) / 'voicesnip'
-        return Path.home() / 'voicesnip'
+    if getattr(sys, 'frozen', False):
+        # PyInstaller: use directory of the executable
+        return Path(sys.executable).parent
     else:
-        return Path.home() / '.config' / 'voicesnip'
+        # Normal Python: use project root (parent of voicesnip package)
+        return Path(__file__).parent.parent
 
 # Audio Configuration
 TARGET_SAMPLE_RATE = 16000
@@ -33,9 +33,13 @@ DTYPE = "int16"
 # Common sample rates to try (in order of preference)
 COMMON_SAMPLE_RATES = [16000, 44100, 48000, 22050, 8000]
 
-# Configuration paths (platform-aware)
+# Application name (used for config filenames)
+APP_NAME = "voicesnip"
+
+# Configuration paths (in project directory for portability)
 CONFIG_DIR = get_platform_config_dir()
-CONFIG_FILE = CONFIG_DIR / 'config.json'
+CONFIG_FILE = CONFIG_DIR / f'{APP_NAME}_config.json'
+PROFILE_FILE = CONFIG_DIR / f'{APP_NAME}_profile.ini'
 
 # GitHub URL
 GITHUB_URL = "https://github.com/Stefan-Schmidbauer/voicesnip"

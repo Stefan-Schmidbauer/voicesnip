@@ -11,7 +11,7 @@ Push-to-Talk Speech-to-Text for Linux and Windows. Hold a hotkey, speak, release
 - **Privacy-First**: Local Whisper keeps all data on your device
 - **GPU Acceleration**: Much faster with NVIDIA GPU
 - **Configurable Hotkeys**: Any key combination (Ctrl+Space, Alt+R, etc.)
-- **Multi-Language**: German, English, or Auto-Detection
+- **Multi-Language**: 10 languages (German, English, French, Spanish, etc.) + Auto-Detection
 
 ## Download
 
@@ -160,8 +160,9 @@ Models download automatically on first use.
 
 | File | Location | Purpose |
 |------|----------|---------|
-| `.env` | Installation dir | API keys |
-| `config.json` | `~/.config/voicesnip/` | GUI settings |
+| `.env` / `voicesnip.ini` | Installation dir | API keys |
+| `voicesnip_config.json` | Installation dir | GUI settings |
+| `voicesnip_profile.ini` | Installation dir | Installation profile |
 | Whisper models | `~/.cache/huggingface/` | Downloaded models |
 
 ## Advanced Configuration

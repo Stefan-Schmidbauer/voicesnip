@@ -27,13 +27,14 @@ cd "$SCRIPT_DIR"
 
 # Parse quickstrap/installation_profiles.ini
 APP_NAME=$(read_ini_value "quickstrap/installation_profiles.ini" "metadata" "app_name")
-CONFIG_DIR=$(read_ini_value "quickstrap/installation_profiles.ini" "metadata" "config_dir")
 START_CMD=$(read_ini_value "quickstrap/installation_profiles.ini" "metadata" "start_command")
 
 # Fallback defaults
 APP_NAME=${APP_NAME:-"Application"}
-CONFIG_DIR=${CONFIG_DIR:-"app"}
 START_CMD=${START_CMD:-"python3 main.py"}
+
+# App name lowercase for config filename
+APP_NAME_LOWER=$(echo "$APP_NAME" | tr '[:upper:]' '[:lower:]')
 
 # Check if virtual environment exists
 if [ ! -d "venv" ]; then
@@ -45,8 +46,8 @@ if [ ! -d "venv" ]; then
     exit 1
 fi
 
-# Check if installation config exists
-CONFIG_FILE="$HOME/.config/$CONFIG_DIR/installation_profile.ini"
+# Check if installation config exists (in project directory)
+CONFIG_FILE="./${APP_NAME_LOWER}_profile.ini"
 if [ ! -f "$CONFIG_FILE" ]; then
     echo "Error: Installation configuration not found."
     echo ""

@@ -1,6 +1,10 @@
 # Environment variables (contains API keys!)
 .env
 
+# User-specific config files (generated at runtime)
+voicesnip_config.json
+voicesnip_profile.ini
+
 # Python
 __pycache__/
 *.py[cod]

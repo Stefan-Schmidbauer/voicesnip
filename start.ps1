@@ -45,8 +45,10 @@ Set-Location $ScriptDir
 
 # Parse quickstrap/installation_profiles.ini
 $AppName = Read-IniValue -File "quickstrap/installation_profiles.ini" -Section "metadata" -Key "app_name" -Default "Application"
-$ConfigDir = Read-IniValue -File "quickstrap/installation_profiles.ini" -Section "metadata" -Key "config_dir" -Default "app"
 $StartCmd = Read-IniValue -File "quickstrap/installation_profiles.ini" -Section "metadata" -Key "start_command" -Default "python main.py"
+
+# App name lowercase for config filename
+$AppNameLower = $AppName.ToLower()
 
 # Convert python3 to python for Windows (python3 is not standard on Windows)
 # After venv activation, 'python' should work from venv Scripts folder
@@ -64,9 +66,8 @@ if (-not (Test-Path $VenvPath)) {
     exit 1
 }
 
-# Check if installation config exists
-# Windows equivalent of ~/.config/$CONFIG_DIR/installation_profile.ini
-$ConfigFile = Join-Path (Join-Path $env:LOCALAPPDATA $ConfigDir) "installation_profile.ini"
+# Check if installation config exists (in project directory)
+$ConfigFile = Join-Path $ScriptDir "${AppNameLower}_profile.ini"
 if (-not (Test-Path $ConfigFile)) {
     Write-Host "Error: Installation configuration not found." -ForegroundColor Red
     Write-Host ""

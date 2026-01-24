@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 from configparser import ConfigParser
 
-from ..constants import CONFIG_DIR, CONFIG_FILE
+from ..constants import CONFIG_DIR, CONFIG_FILE, PROFILE_FILE
 
 
 def load_config():
@@ -31,15 +31,13 @@ def load_config():
 
 
 def save_config(config):
-    """Save configuration to file
+    """Save configuration to file (in project directory)
 
     Args:
         config: Configuration dictionary to save
     """
     try:
-        # Create config directory if it doesn't exist
-        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-
+        # Config is saved in project directory - no need to create directory
         with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
             json.dump(config, f, indent=2)
     except (IOError, OSError) as e:
@@ -47,16 +45,16 @@ def save_config(config):
 
 
 def load_installation_config():
-    """Load and validate installation config.
+    """Load and validate installation config from project directory.
 
     Returns:
         Dict with config data or None if missing
     """
-    # Use platform-aware config directory
-    config_file = CONFIG_DIR / 'installation_profile.ini'
-
-    if not config_file.exists():
+    # Config file is in project directory with app-specific name
+    if not PROFILE_FILE.exists():
         return None
+
+    config_file = PROFILE_FILE
 
     try:
         config = ConfigParser()

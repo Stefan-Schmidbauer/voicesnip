@@ -98,7 +98,7 @@ class VoiceSnipGUI:
             width = self.config['window_width']
             height = self.config['window_height']
         else:
-            base_width, base_height = 600, 800
+            base_width, base_height = 660, 420
             width, height = self.scale_window_size(base_width, base_height)
 
         self.root.geometry(f"{width}x{height}")
@@ -134,7 +134,7 @@ class VoiceSnipGUI:
 
         # Logo
         logo_frame = ttk.Frame(main_frame)
-        logo_frame.pack(pady=(0, 20))
+        logo_frame.pack(pady=(0, 15))
 
         try:
             png_path = get_resource_path(os.path.join("assets", "icons", "app", "voicesnip_icon.png"))
@@ -152,18 +152,22 @@ class VoiceSnipGUI:
             title_label = ttk.Label(logo_frame, text="VoiceSnip", font=("Arial", 16, "bold"))
             title_label.pack()
 
-        # Microphone selection
-        mic_frame = ttk.LabelFrame(main_frame, text="Microphone", padding="10")
-        mic_frame.pack(fill=tk.X, pady=(0, 10))
+        # === Settings Frame (contains all configuration options) ===
+        settings_frame = ttk.LabelFrame(main_frame, text="Settings", padding="10")
+        settings_frame.pack(fill=tk.X, pady=(0, 10))
 
-        self.mic_combo = ttk.Combobox(mic_frame, state="readonly", width=50)
-        self.mic_combo.pack(fill=tk.X)
+        # Microphone selection
+        mic_row = ttk.Frame(settings_frame)
+        mic_row.pack(fill=tk.X, pady=(0, 5))
+        ttk.Label(mic_row, text="Microphone:", width=12, anchor='w').pack(side=tk.LEFT)
+        self.mic_combo = ttk.Combobox(mic_row, state="readonly", width=45)
+        self.mic_combo.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         # Provider selection
-        provider_frame = ttk.LabelFrame(main_frame, text="Provider", padding="10")
-        provider_frame.pack(fill=tk.X, pady=(0, 10))
-
-        self.provider_combo = ttk.Combobox(provider_frame, state="readonly", width=50)
+        provider_row = ttk.Frame(settings_frame)
+        provider_row.pack(fill=tk.X, pady=(0, 5))
+        ttk.Label(provider_row, text="Provider:", width=12, anchor='w').pack(side=tk.LEFT)
+        self.provider_combo = ttk.Combobox(provider_row, state="readonly", width=45)
 
         # Build provider list dynamically
         self.provider_display_to_name = {}
@@ -197,45 +201,46 @@ class VoiceSnipGUI:
                                "No providers available. Please reinstall VoiceSnip.")
             sys.exit(1)
         self.provider_combo.bind('<<ComboboxSelected>>', lambda e: self.on_provider_changed())
-        self.provider_combo.pack(fill=tk.X)
+        self.provider_combo.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         # Model selection
-        model_frame = ttk.LabelFrame(main_frame, text="Model", padding="10")
-        model_frame.pack(fill=tk.X, pady=(0, 10))
-
-        self.model_combo = ttk.Combobox(model_frame, state="readonly", width=30)
-        self.model_combo.pack(fill=tk.X)
+        model_row = ttk.Frame(settings_frame)
+        model_row.pack(fill=tk.X, pady=(0, 5))
+        ttk.Label(model_row, text="Model:", width=12, anchor='w').pack(side=tk.LEFT)
+        self.model_combo = ttk.Combobox(model_row, state="readonly", width=45)
+        self.model_combo.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         # Language selection
-        lang_frame = ttk.LabelFrame(main_frame, text="Language", padding="10")
-        lang_frame.pack(fill=tk.X, pady=(0, 10))
-
-        self.language_combo = ttk.Combobox(lang_frame, state="readonly", width=50)
+        lang_row = ttk.Frame(settings_frame)
+        lang_row.pack(fill=tk.X, pady=(0, 5))
+        ttk.Label(lang_row, text="Language:", width=12, anchor='w').pack(side=tk.LEFT)
+        self.language_combo = ttk.Combobox(lang_row, state="readonly", width=45)
         self.language_combo['values'] = LANGUAGE_NAMES
         # Default to German (index 3 in alphabetical list)
         self.language_combo.current(LANGUAGE_CODE_TO_INDEX.get('de', 0))
-        self.language_combo.pack(fill=tk.X)
+        self.language_combo.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         # Hotkey configuration
-        hotkey_frame = ttk.LabelFrame(main_frame, text="Hotkey Configuration", padding="10")
-        hotkey_frame.pack(fill=tk.X, pady=(0, 10))
-
-        hotkey_input_frame = ttk.Frame(hotkey_frame)
-        hotkey_input_frame.pack(fill=tk.X)
-
-        ttk.Label(hotkey_input_frame, text="Hotkey:").pack(side=tk.LEFT, padx=(0, 5))
-
+        hotkey_row = ttk.Frame(settings_frame)
+        hotkey_row.pack(fill=tk.X, pady=(0, 5))
+        ttk.Label(hotkey_row, text="Hotkey:", width=12, anchor='w').pack(side=tk.LEFT)
         self.hotkey_var = tk.StringVar(value=DEFAULT_HOTKEY)
-        self.hotkey_entry = ttk.Entry(hotkey_input_frame, textvariable=self.hotkey_var, width=20)
+        self.hotkey_entry = ttk.Entry(hotkey_row, textvariable=self.hotkey_var, width=20)
         self.hotkey_entry.pack(side=tk.LEFT, padx=(0, 5))
-
-        self.record_hotkey_button = ttk.Button(hotkey_input_frame, text="Record", command=self.start_hotkey_recording)
+        self.record_hotkey_button = ttk.Button(hotkey_row, text="Record", command=self.start_hotkey_recording)
         self.record_hotkey_button.pack(side=tk.LEFT)
 
         self.hotkey_recording = False
         self.hotkey_listener = None
 
-        # Transcription display
+        # Status display (inside settings frame)
+        status_row = ttk.Frame(settings_frame)
+        status_row.pack(fill=tk.X, pady=(5, 0))
+        ttk.Label(status_row, text="Status:", width=12, anchor='w').pack(side=tk.LEFT)
+        self.status_label = ttk.Label(status_row, text="Ready", foreground="gray")
+        self.status_label.pack(side=tk.LEFT)
+
+        # === Transcription Frame ===
         transcription_frame = ttk.LabelFrame(main_frame, text="Transcription", padding="10")
         transcription_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
 
@@ -245,7 +250,7 @@ class VoiceSnipGUI:
 
         self.transcription_text = tk.Text(
             text_container,
-            height=4,
+            height=2,
             wrap=tk.WORD,
             state=tk.DISABLED,
             font=("TkDefaultFont", 10)
@@ -277,29 +282,19 @@ class VoiceSnipGUI:
         )
         self.auto_clipboard_check.pack(side=tk.LEFT)
 
-        # Status display
-        status_frame = ttk.LabelFrame(main_frame, text="Status", padding="10")
-        status_frame.pack(fill=tk.X, pady=(0, 10))
-
-        self.status_label = ttk.Label(status_frame, text="Ready", foreground="gray")
-        self.status_label.pack()
-
         # Record button for GUI-based recording (useful for Wayland)
-        record_button_frame = ttk.Frame(status_frame)
-        record_button_frame.pack(pady=(10, 0))
-
         self.gui_record_button = ttk.Button(
-            record_button_frame,
+            transcription_buttons,
             text="Start Recording",
             command=self.toggle_gui_recording,
             state=tk.DISABLED,
-            width=20
+            width=15
         )
-        self.gui_record_button.pack()
+        self.gui_record_button.pack(side=tk.RIGHT)
 
-        # Buttons
+        # === Buttons Frame ===
         button_frame = ttk.Frame(main_frame)
-        button_frame.pack(pady=(20, 0))
+        button_frame.pack(pady=(10, 0))
 
         self.start_button = ttk.Button(button_frame, text="Start", command=self.start, width=12)
         self.start_button.pack(side=tk.LEFT, padx=5)
@@ -307,11 +302,11 @@ class VoiceSnipGUI:
         self.stop_button = ttk.Button(button_frame, text="Stop", command=self.stop, state=tk.DISABLED, width=12)
         self.stop_button.pack(side=tk.LEFT, padx=5)
 
-        self.quit_button = ttk.Button(button_frame, text="Quit", command=self.on_closing, width=12)
-        self.quit_button.pack(side=tk.LEFT, padx=5)
-
         self.about_button = ttk.Button(button_frame, text="About", command=self.show_about, width=12)
         self.about_button.pack(side=tk.LEFT, padx=5)
+
+        self.quit_button = ttk.Button(button_frame, text="Quit", command=self.on_closing, width=12)
+        self.quit_button.pack(side=tk.LEFT, padx=5)
 
     def populate_devices(self):
         """Populate microphone dropdown with available devices"""
@@ -749,7 +744,7 @@ class VoiceSnipGUI:
         try:
             self.root.clipboard_clear()
             self.root.clipboard_append(text)
-            self.root.update()  # Required for clipboard to persist
+            self.root.update_idletasks()  # Process clipboard without triggering after() callbacks
         except tk.TclError:
             pass
 

@@ -18,9 +18,11 @@ jobs:
           - profile: basis
             name: VoiceSnip-Windows
             requirements: quickstrap/requirements_python_basis_windows.txt
+            features: whisper,deepgram
           - profile: cuda
             name: VoiceSnip-Windows-CUDA
             requirements: quickstrap/requirements_python_cuda_windows.txt
+            features: whisper,deepgram,cuda
 
     steps:
       - name: Checkout repository
@@ -43,10 +45,21 @@ jobs:
         run: |
           pyinstaller --onefile --name VoiceSnip --icon=assets/icons/app/voicesnip.ico --add-data "assets;assets" --hidden-import pynput.keyboard._win32 --hidden-import pynput.mouse._win32 main.py
 
+      - name: Generate profile config
+        run: |
+          @"
+          [installation]
+          profile = ${{ matrix.profile }}
+          features = ${{ matrix.features }}
+          install_date = $(Get-Date -Format o)
+          "@ | Out-File -FilePath "voicesnip_profile.ini" -Encoding utf8
+        shell: pwsh
+
       - name: Prepare distribution package
         run: |
           mkdir dist-package
           copy dist\VoiceSnip.exe dist-package\
+          copy voicesnip_profile.ini dist-package\
           copy .env.example dist-package\voicesnip.ini
           copy README.md dist-package\
           copy LICENSE dist-package\
@@ -71,9 +84,11 @@ jobs:
           - profile: basis
             name: VoiceSnip-Linux
             requirements: quickstrap/requirements_python_basis.txt
+            features: whisper,deepgram
           - profile: cuda
             name: VoiceSnip-Linux-CUDA
             requirements: quickstrap/requirements_python_cuda.txt
+            features: whisper,deepgram,cuda
 
     steps:
       - name: Checkout repository
@@ -154,10 +169,20 @@ jobs:
         run: |
           ARCH=x86_64 ./appimagetool-x86_64.AppImage --appimage-extract-and-run AppDir ${{ matrix.name }}.AppImage
 
+      - name: Generate profile config
+        run: |
+          cat > voicesnip_profile.ini << 'EOF'
+          [installation]
+          profile = ${{ matrix.profile }}
+          features = ${{ matrix.features }}
+          install_date = $(date -Iseconds)
+          EOF
+
       - name: Prepare distribution package
         run: |
           mkdir dist-package
           cp ${{ matrix.name }}.AppImage dist-package/
+          cp voicesnip_profile.ini dist-package/
           cp .env.example dist-package/.env
           cp README.md dist-package/
           cp LICENSE dist-package/

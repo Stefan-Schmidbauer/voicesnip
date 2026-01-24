@@ -18,6 +18,7 @@ from ..constants import (
     LANGUAGE_CODE_TO_INDEX,
     LANGUAGE_INDEX_TO_CODE,
     LANGUAGE_NAMES,
+    is_wayland,
 )
 from ..core import VoiceSnipCore
 from ..hotkey_manager import format_hotkey
@@ -47,6 +48,9 @@ class VoiceSnipGUI:
         self.core = None
         self.listener = None
         self.is_active = False
+        self.is_wayland = is_wayland()
+        self.last_transcription = ""
+        self.is_gui_recording = False  # For GUI-based recording (Wayland)
 
         # Store installation config
         self.installation_config = installation_config
@@ -231,12 +235,67 @@ class VoiceSnipGUI:
         self.hotkey_recording = False
         self.hotkey_listener = None
 
+        # Transcription display
+        transcription_frame = ttk.LabelFrame(main_frame, text="Transcription", padding="10")
+        transcription_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+
+        # Text widget with scrollbar
+        text_container = ttk.Frame(transcription_frame)
+        text_container.pack(fill=tk.BOTH, expand=True)
+
+        self.transcription_text = tk.Text(
+            text_container,
+            height=4,
+            wrap=tk.WORD,
+            state=tk.DISABLED,
+            font=("TkDefaultFont", 10)
+        )
+        scrollbar = ttk.Scrollbar(text_container, orient=tk.VERTICAL, command=self.transcription_text.yview)
+        self.transcription_text.configure(yscrollcommand=scrollbar.set)
+
+        self.transcription_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Transcription buttons frame
+        transcription_buttons = ttk.Frame(transcription_frame)
+        transcription_buttons.pack(fill=tk.X, pady=(10, 0))
+
+        self.copy_button = ttk.Button(
+            transcription_buttons,
+            text="Copy to Clipboard",
+            command=self.copy_transcription,
+            state=tk.DISABLED
+        )
+        self.copy_button.pack(side=tk.LEFT, padx=(0, 10))
+
+        # Auto-clipboard checkbox
+        self.auto_clipboard_var = tk.BooleanVar(value=False)
+        self.auto_clipboard_check = ttk.Checkbutton(
+            transcription_buttons,
+            text="Auto-copy to clipboard",
+            variable=self.auto_clipboard_var
+        )
+        self.auto_clipboard_check.pack(side=tk.LEFT)
+
         # Status display
         status_frame = ttk.LabelFrame(main_frame, text="Status", padding="10")
         status_frame.pack(fill=tk.X, pady=(0, 10))
 
         self.status_label = ttk.Label(status_frame, text="Ready", foreground="gray")
         self.status_label.pack()
+
+        # Record button for GUI-based recording (useful for Wayland)
+        record_button_frame = ttk.Frame(status_frame)
+        record_button_frame.pack(pady=(10, 0))
+
+        self.gui_record_button = ttk.Button(
+            record_button_frame,
+            text="Start Recording",
+            command=self.toggle_gui_recording,
+            state=tk.DISABLED,
+            width=20
+        )
+        self.gui_record_button.pack()
 
         # Buttons
         button_frame = ttk.Frame(main_frame)
@@ -322,6 +381,10 @@ class VoiceSnipGUI:
                             self.provider_combo.current(idx)
                             break
                     break
+
+        # Load auto-clipboard setting
+        if 'auto_clipboard' in self.config:
+            self.auto_clipboard_var.set(self.config['auto_clipboard'])
 
         self.populate_models()
 
@@ -435,6 +498,18 @@ class VoiceSnipGUI:
 
     def start(self):
         """Start VoiceSnip"""
+        # Show Wayland info on first start
+        if self.is_wayland and not self.config.get('wayland_info_shown', False):
+            messagebox.showinfo(
+                "Wayland Detected",
+                "VoiceSnip detected that you are running Wayland.\n\n"
+                "Global hotkeys do not work under Wayland due to security restrictions.\n\n"
+                "Please use the 'Start Recording' button in the GUI to record audio.\n"
+                "Enable 'Auto-copy to clipboard' to automatically copy transcriptions."
+            )
+            self.config['wayland_info_shown'] = True
+            save_config(self.config)
+
         selected_idx = self.mic_combo.current()
         if selected_idx < 0:
             messagebox.showerror("Error", "Please select a microphone.")
@@ -501,6 +576,7 @@ class VoiceSnipGUI:
         self.config['device_name'] = device_name
         self.config['language'] = language
         self.config['hotkey'] = hotkey
+        self.config['auto_clipboard'] = self.auto_clipboard_var.get()
         save_config(self.config)
 
         # Initialize core
@@ -517,6 +593,7 @@ class VoiceSnipGUI:
                 provider_config=provider_config
             )
             self.core.set_status_callback(self.update_status)
+            self.core.set_text_callback(self.update_transcription)
 
             # Only show model download info for local Whisper (not for server-based providers)
             if 'whisper' in provider_name and 'server' not in provider_name:
@@ -572,7 +649,14 @@ class VoiceSnipGUI:
                 self.record_hotkey_button.config(state=tk.DISABLED)
             if self.language_combo.winfo_exists():
                 self.language_combo.config(state=tk.DISABLED)
-            self.update_status("✅ Active - Waiting for hotkey...")
+            if self.gui_record_button.winfo_exists():
+                self.gui_record_button.config(state=tk.NORMAL)
+
+            # Show appropriate status message
+            if self.is_wayland:
+                self.update_status("✅ Active - Use Record button (Wayland)")
+            else:
+                self.update_status("✅ Active - Waiting for hotkey...")
         except tk.TclError as e:
             print(f"Warning: GUI widget error during startup: {e}")
             if self.listener:
@@ -611,6 +695,9 @@ class VoiceSnipGUI:
                 self.record_hotkey_button.config(state=tk.NORMAL)
             if self.language_combo.winfo_exists():
                 self.language_combo.config(state="readonly")
+            if self.gui_record_button.winfo_exists():
+                self.gui_record_button.config(state=tk.DISABLED, text="Start Recording")
+            self.is_gui_recording = False
             self.update_status("Ready")
         except tk.TclError:
             pass
@@ -624,3 +711,60 @@ class VoiceSnipGUI:
     def show_about(self):
         """Show About dialog"""
         show_about_dialog(self.root)
+
+    def update_transcription(self, text):
+        """Update transcription text field (thread-safe)"""
+        def _update():
+            try:
+                if self.transcription_text.winfo_exists():
+                    self.transcription_text.config(state=tk.NORMAL)
+                    self.transcription_text.delete(1.0, tk.END)
+                    self.transcription_text.insert(tk.END, text)
+                    self.transcription_text.config(state=tk.DISABLED)
+                    self.last_transcription = text
+
+                    # Enable copy button
+                    if self.copy_button.winfo_exists():
+                        self.copy_button.config(state=tk.NORMAL)
+
+                    # Auto-copy to clipboard if enabled
+                    if self.auto_clipboard_var.get():
+                        self.copy_to_clipboard(text)
+            except tk.TclError:
+                pass
+
+        try:
+            self.root.after(0, _update)
+        except tk.TclError:
+            pass
+
+    def copy_transcription(self):
+        """Copy last transcription to clipboard"""
+        if self.last_transcription:
+            self.copy_to_clipboard(self.last_transcription)
+            self.update_status("Copied to clipboard")
+
+    def copy_to_clipboard(self, text):
+        """Copy text to system clipboard"""
+        try:
+            self.root.clipboard_clear()
+            self.root.clipboard_append(text)
+            self.root.update()  # Required for clipboard to persist
+        except tk.TclError:
+            pass
+
+    def toggle_gui_recording(self):
+        """Toggle recording via GUI button (for Wayland support)"""
+        if not self.core:
+            return
+
+        if self.is_gui_recording:
+            # Stop recording
+            self.is_gui_recording = False
+            self.gui_record_button.config(text="Start Recording")
+            self.core.stop_recording()
+        else:
+            # Start recording
+            self.is_gui_recording = True
+            self.gui_record_button.config(text="Stop Recording")
+            self.core.start_recording()

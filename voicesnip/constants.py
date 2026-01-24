@@ -123,3 +123,15 @@ LANGUAGE_INDEX_TO_CODE = {idx: lang[1] for idx, lang in enumerate(LANGUAGES)}
 
 # Default hotkey
 DEFAULT_HOTKEY = "ctrl+space"
+
+
+def is_wayland():
+    """Check if running under Wayland display server.
+
+    Returns True if XDG_SESSION_TYPE is 'wayland', False otherwise.
+    This is used to adjust behavior for Wayland limitations
+    (global hotkeys don't work under Wayland).
+    """
+    if sys.platform == 'win32':
+        return False
+    return os.environ.get('XDG_SESSION_TYPE', '').lower() == 'wayland'

@@ -69,6 +69,31 @@ FASTER_WHISPER_ENDPOINT=http://your-server:8000/v1/audio/transcriptions
 
 ---
 
+## Wayland Support
+
+VoiceSnip works on both X11 and Wayland, but with different workflows due to Wayland's security model.
+
+### X11 (Full Support)
+
+- **Global hotkeys work** - Hold Ctrl+Space (or your configured hotkey) anywhere
+- Text is automatically inserted at your cursor
+
+### Wayland (GUI-Based Recording)
+
+Wayland blocks global keyboard hooks for security reasons. VoiceSnip provides an alternative workflow:
+
+1. **Click "Start"** to activate VoiceSnip
+2. **Click "Start Recording"** button in the GUI (instead of hotkey)
+3. Speak your text
+4. **Click "Stop Recording"** (or click the button again)
+5. Text appears in the transcription field
+6. **Enable "Auto-copy to clipboard"** for automatic copying
+7. Switch to your target app and **Ctrl+V** to paste
+
+**Tip:** Enable "Auto-copy to clipboard" to minimize steps under Wayland.
+
+---
+
 # For Developers
 
 ## Installation from Source
@@ -78,7 +103,7 @@ For development or if you prefer running from source:
 ### Requirements
 
 - Python 3.8+
-- Linux: X11 (Wayland not supported), Debian/Ubuntu for automated install
+- Linux: X11 or Wayland (see [Wayland Support](#wayland-support)), Debian/Ubuntu for automated install
 - Windows: Python from [python.org](https://www.python.org/downloads/)
 - For GPU: NVIDIA GPU with CUDA drivers
 

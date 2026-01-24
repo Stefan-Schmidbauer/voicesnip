@@ -21,6 +21,7 @@ class VoiceSnipCore:
                  provider_name='whisper', provider_config=None):
         self.language = language
         self.status_callback = None
+        self.text_callback = None  # Callback for transcribed text
         self._shutting_down = False
 
         # Initialize audio recorder
@@ -41,6 +42,19 @@ class VoiceSnipCore:
     def set_status_callback(self, callback):
         """Set callback function for status updates"""
         self.status_callback = callback
+
+    def set_text_callback(self, callback):
+        """Set callback function for transcribed text"""
+        self.text_callback = callback
+
+    def notify_text(self, text):
+        """Notify listeners about transcribed text"""
+        if self.text_callback and not self._shutting_down:
+            try:
+                self.text_callback(text)
+            except Exception:
+                # Callback failed (e.g., GUI destroyed), ignore
+                pass
 
     def update_status(self, message):
         """Update status via callback"""
@@ -104,6 +118,7 @@ class VoiceSnipCore:
 
                 if text:
                     self.update_status(f"✅ Transcribed: {text}")
+                    self.notify_text(text)
                     insert_text(text)
                 else:
                     self.update_status("❌ No text recognized")

@@ -9,6 +9,17 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    strategy:
+      matrix:
+        include:
+          - profile: basis
+            name: VoiceSnip-Windows
+            requirements: quickstrap/requirements_python_basis_windows.txt
+            description: "CPU-only (Deepgram Cloud + Whisper CPU)"
+          - profile: cuda
+            name: VoiceSnip-Windows-CUDA
+            requirements: quickstrap/requirements_python_cuda_windows.txt
+            description: "GPU-accelerated (Deepgram Cloud + Whisper CUDA)"
 
     steps:
       - name: Checkout repository
@@ -20,43 +31,76 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      - name: Install dependencies
+      - name: Install dependencies (${{ matrix.profile }})
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r ${{ matrix.requirements }}
           pip install pyinstaller
 
-      - name: Build EXE with PyInstaller
+      - name: Build EXE with PyInstaller (${{ matrix.profile }})
         run: |
           pyinstaller --onefile --name VoiceSnip --icon=assets/icons/app/voicesnip.ico --add-data "assets;assets" main.py
 
       - name: Prepare distribution package
         run: |
-          mkdir VoiceSnip-Windows
-          copy dist\VoiceSnip.exe VoiceSnip-Windows\
-          copy .env.example VoiceSnip-Windows\
-          copy README.md VoiceSnip-Windows\
-          copy LICENSE VoiceSnip-Windows\
-          copy voicesnip.png VoiceSnip-Windows\
+          mkdir ${{ matrix.name }}
+          copy dist\VoiceSnip.exe ${{ matrix.name }}\
+          copy .env.example ${{ matrix.name }}\
+          copy README.md ${{ matrix.name }}\
+          copy LICENSE ${{ matrix.name }}\
+          if exist voicesnip.png copy voicesnip.png ${{ matrix.name }}\
         shell: cmd
+
+      - name: Create ZIP archive
+        run: |
+          Compress-Archive -Path "${{ matrix.name }}" -DestinationPath "${{ matrix.name }}.zip"
+        shell: pwsh
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: VoiceSnip-Windows
-          path: VoiceSnip-Windows/
+          name: ${{ matrix.name }}
+          path: ${{ matrix.name }}.zip
           retention-days: 30
 
-      - name: Create Release (on tag)
-        if: startsWith(github.ref, 'refs/tags/')
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: |
+          echo "Downloaded artifacts:"
+          find artifacts -type f -name "*.zip"
+
+      - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            VoiceSnip-Windows/VoiceSnip.exe
-            VoiceSnip-Windows/.env.example
-            VoiceSnip-Windows/README.md
-            VoiceSnip-Windows/LICENSE
-            VoiceSnip-Windows/voicesnip.png
+            artifacts/**/*.zip
           generate_release_notes: true
+          body: |
+            ## Downloads
+
+            | File | Description |
+            |------|-------------|
+            | `VoiceSnip-Windows.zip` | CPU-only version (Deepgram Cloud + Whisper CPU) |
+            | `VoiceSnip-Windows-CUDA.zip` | GPU-accelerated version (requires NVIDIA GPU + CUDA) |
+
+            ### Installation
+            1. Download the appropriate ZIP for your system
+            2. Extract to a folder of your choice
+            3. Copy `.env.example` to `.env` and configure your API keys
+            4. Run `VoiceSnip.exe`
+
+            ### Which version should I choose?
+            - **VoiceSnip-Windows.zip**: Works on any Windows PC. Uses CPU for local transcription.
+            - **VoiceSnip-Windows-CUDA.zip**: Faster local transcription if you have an NVIDIA GPU with CUDA installed.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

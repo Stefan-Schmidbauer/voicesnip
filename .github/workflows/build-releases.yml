@@ -1,0 +1,251 @@
+name: Build Releases
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  # =============================================================================
+  # Windows Builds
+  # =============================================================================
+  build-windows:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        include:
+          - profile: basis
+            name: VoiceSnip-Windows
+            requirements: quickstrap/requirements_python_basis_windows.txt
+          - profile: cuda
+            name: VoiceSnip-Windows-CUDA
+            requirements: quickstrap/requirements_python_cuda_windows.txt
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: ${{ matrix.requirements }}
+
+      - name: Install dependencies (${{ matrix.profile }})
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r ${{ matrix.requirements }}
+          pip install pyinstaller
+
+      - name: Build EXE with PyInstaller
+        run: |
+          pyinstaller --onefile --name VoiceSnip --icon=assets/icons/app/voicesnip.ico --add-data "assets;assets" main.py
+
+      - name: Prepare distribution package
+        run: |
+          mkdir ${{ matrix.name }}
+          copy dist\VoiceSnip.exe ${{ matrix.name }}\
+          copy .env.example ${{ matrix.name }}\
+          copy README.md ${{ matrix.name }}\
+          copy LICENSE ${{ matrix.name }}\
+          if exist voicesnip.png copy voicesnip.png ${{ matrix.name }}\
+        shell: cmd
+
+      - name: Create ZIP archive
+        run: |
+          Compress-Archive -Path "${{ matrix.name }}" -DestinationPath "${{ matrix.name }}.zip"
+        shell: pwsh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ matrix.name }}.zip
+          retention-days: 30
+
+  # =============================================================================
+  # Linux Builds (AppImage)
+  # =============================================================================
+  build-linux:
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        include:
+          - profile: basis
+            name: VoiceSnip-Linux
+            requirements: quickstrap/requirements_python_basis.txt
+          - profile: cuda
+            name: VoiceSnip-Linux-CUDA
+            requirements: quickstrap/requirements_python_cuda.txt
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libportaudio2 \
+            libxcb-xinerama0 \
+            libxcb-cursor0 \
+            fuse \
+            libfuse2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: ${{ matrix.requirements }}
+
+      - name: Install dependencies (${{ matrix.profile }})
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r ${{ matrix.requirements }}
+          pip install pyinstaller
+
+      - name: Build binary with PyInstaller
+        run: |
+          pyinstaller --onefile --name VoiceSnip --add-data "assets:assets" main.py
+
+      - name: Download appimagetool
+        run: |
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+
+      - name: Create AppDir structure
+        run: |
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+          mkdir -p AppDir/usr/share/applications
+
+          # Copy binary
+          cp dist/VoiceSnip AppDir/usr/bin/
+          chmod +x AppDir/usr/bin/VoiceSnip
+
+          # Copy icon
+          cp assets/icons/app/voicesnip_icon.png AppDir/usr/share/icons/hicolor/256x256/apps/voicesnip.png
+          cp assets/icons/app/voicesnip_icon.png AppDir/voicesnip.png
+
+          # Create .desktop file
+          cat > AppDir/voicesnip.desktop << 'DESKTOP'
+          [Desktop Entry]
+          Type=Application
+          Name=VoiceSnip
+          Exec=VoiceSnip
+          Icon=voicesnip
+          Categories=AudioVideo;Audio;Utility;
+          Comment=Voice-to-text transcription tool
+          Terminal=false
+          DESKTOP
+
+          cp AppDir/voicesnip.desktop AppDir/usr/share/applications/
+
+          # Create AppRun
+          cat > AppDir/AppRun << 'APPRUN'
+          #!/bin/bash
+          SELF=$(readlink -f "$0")
+          HERE=${SELF%/*}
+          export PATH="${HERE}/usr/bin:${PATH}"
+          exec "${HERE}/usr/bin/VoiceSnip" "$@"
+          APPRUN
+
+          chmod +x AppDir/AppRun
+
+      - name: Build AppImage
+        run: |
+          ARCH=x86_64 ./appimagetool-x86_64.AppImage --appimage-extract-and-run AppDir ${{ matrix.name }}.AppImage
+
+      - name: Create distribution package
+        run: |
+          mkdir ${{ matrix.name }}
+          cp ${{ matrix.name }}.AppImage ${{ matrix.name }}/
+          cp .env.example ${{ matrix.name }}/
+          cp README.md ${{ matrix.name }}/
+          cp LICENSE ${{ matrix.name }}/
+          [ -f voicesnip.png ] && cp voicesnip.png ${{ matrix.name }}/ || true
+          tar -czvf ${{ matrix.name }}.tar.gz ${{ matrix.name }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ matrix.name }}.tar.gz
+          retention-days: 30
+
+  # =============================================================================
+  # Create Release
+  # =============================================================================
+  release:
+    needs: [build-windows, build-linux]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: |
+          echo "Downloaded artifacts:"
+          find artifacts -type f \( -name "*.zip" -o -name "*.tar.gz" \)
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/**/*.zip
+            artifacts/**/*.tar.gz
+          generate_release_notes: true
+          body: |
+            ## Downloads
+
+            ### Windows
+            | File | Description |
+            |------|-------------|
+            | `VoiceSnip-Windows.zip` | CPU-only (Deepgram Cloud + Whisper CPU) |
+            | `VoiceSnip-Windows-CUDA.zip` | GPU-accelerated (requires NVIDIA GPU + CUDA) |
+
+            ### Linux
+            | File | Description |
+            |------|-------------|
+            | `VoiceSnip-Linux.tar.gz` | CPU-only AppImage (Deepgram Cloud + Whisper CPU) |
+            | `VoiceSnip-Linux-CUDA.tar.gz` | GPU-accelerated AppImage (requires NVIDIA GPU + CUDA) |
+
+            ---
+
+            ## Installation
+
+            ### Windows
+            1. Download the appropriate ZIP for your system
+            2. Extract to a folder of your choice
+            3. Copy `.env.example` to `.env` and configure your API keys
+            4. Run `VoiceSnip.exe`
+
+            ### Linux
+            1. Download the appropriate tar.gz for your system
+            2. Extract: `tar -xzf VoiceSnip-Linux*.tar.gz`
+            3. Copy `.env.example` to `.env` and configure your API keys
+            4. Make executable: `chmod +x VoiceSnip-Linux*.AppImage`
+            5. Run: `./VoiceSnip-Linux*.AppImage`
+
+            ---
+
+            ## Which version should I choose?
+
+            **CPU versions** (`VoiceSnip-Windows.zip` / `VoiceSnip-Linux.tar.gz`):
+            - Works on any PC
+            - Uses CPU for local Whisper transcription
+            - Smaller download size
+
+            **CUDA versions** (`VoiceSnip-Windows-CUDA.zip` / `VoiceSnip-Linux-CUDA.tar.gz`):
+            - Requires NVIDIA GPU with CUDA installed
+            - Much faster local transcription
+            - Larger download size
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -164,6 +164,14 @@ Models download automatically on first use.
 | `config.json` | `~/.config/voicesnip/` | GUI settings |
 | Whisper models | `~/.cache/huggingface/` | Downloaded models |
 
+## Advanced Configuration
+
+For HTTPS endpoints with self-signed certificates (e.g., local Faster Whisper Server with TLS):
+
+```ini
+FASTER_WHISPER_VERIFY_SSL=false
+```
+
 ## Project Structure
 
 ```

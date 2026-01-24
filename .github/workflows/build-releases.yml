@@ -41,7 +41,7 @@ jobs:
 
       - name: Build EXE with PyInstaller
         run: |
-          pyinstaller --onefile --name VoiceSnip --icon=assets/icons/app/voicesnip.ico --add-data "assets;assets" main.py
+          pyinstaller --onefile --name VoiceSnip --icon=assets/icons/app/voicesnip.ico --add-data "assets;assets" --hidden-import pynput.keyboard._win32 --hidden-import pynput.mouse._win32 main.py
 
       - name: Prepare distribution package
         run: |
@@ -109,7 +109,7 @@ jobs:
 
       - name: Build binary with PyInstaller
         run: |
-          pyinstaller --onefile --name VoiceSnip --add-data "assets:assets" main.py
+          pyinstaller --onefile --name VoiceSnip --add-data "assets:assets" --hidden-import pynput.keyboard._xorg --hidden-import pynput.mouse._xorg main.py
 
       - name: Download appimagetool
         run: |

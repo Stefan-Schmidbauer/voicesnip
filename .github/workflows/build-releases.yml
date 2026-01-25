@@ -18,11 +18,13 @@ jobs:
           - profile: basis
             name: VoiceSnip-Windows
             requirements: quickstrap/requirements_python_basis_windows.txt
-            features: whisper,deepgram
+            features: whisper,deepgram,faster-whisper-server
+            pyinstaller_extras: ""
           - profile: cuda
             name: VoiceSnip-Windows-CUDA
             requirements: quickstrap/requirements_python_cuda_windows.txt
-            features: whisper,deepgram,cuda
+            features: whisper,deepgram,cuda,faster-whisper-server
+            pyinstaller_extras: "--collect-all nvidia.cudnn --collect-all nvidia.cublas --collect-all ctranslate2"
 
     steps:
       - name: Checkout repository
@@ -43,7 +45,7 @@ jobs:
 
       - name: Build EXE with PyInstaller
         run: |
-          pyinstaller --onefile --name VoiceSnip --icon=assets/icons/app/voicesnip.ico --add-data "assets;assets" --hidden-import pynput.keyboard._win32 --hidden-import pynput.mouse._win32 main.py
+          pyinstaller --onefile --name VoiceSnip --icon=assets/icons/app/voicesnip.ico --add-data "assets;assets" --hidden-import pynput.keyboard._win32 --hidden-import pynput.mouse._win32 ${{ matrix.pyinstaller_extras }} main.py
 
       - name: Generate profile config
         run: |
@@ -84,11 +86,13 @@ jobs:
           - profile: basis
             name: VoiceSnip-Linux
             requirements: quickstrap/requirements_python_basis.txt
-            features: whisper,deepgram
+            features: whisper,deepgram,faster-whisper-server
+            pyinstaller_extras: ""
           - profile: cuda
             name: VoiceSnip-Linux-CUDA
             requirements: quickstrap/requirements_python_cuda.txt
-            features: whisper,deepgram,cuda
+            features: whisper,deepgram,cuda,faster-whisper-server
+            pyinstaller_extras: "--collect-all nvidia.cudnn --collect-all nvidia.cublas --collect-all ctranslate2"
 
     steps:
       - name: Checkout repository
@@ -119,7 +123,7 @@ jobs:
 
       - name: Build binary with PyInstaller
         run: |
-          pyinstaller --onefile --name VoiceSnip --add-data "assets:assets" --hidden-import pynput.keyboard._xorg --hidden-import pynput.mouse._xorg main.py
+          pyinstaller --onefile --name VoiceSnip --add-data "assets:assets" --hidden-import pynput.keyboard._xorg --hidden-import pynput.mouse._xorg ${{ matrix.pyinstaller_extras }} main.py
 
       - name: Download appimagetool
         run: |

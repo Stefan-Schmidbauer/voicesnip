@@ -16,14 +16,14 @@ Features:
 - Automatic terminal detection for better paste support
 - Settings persistence
 
-Copyright (c) 2025 Stefan Schmidbauer
+Copyright (c) Stefan Schmidbauer
 License: MIT License
 GitHub: https://github.com/Stefan-Schmidbauer/voicesnip
 """
 
 import os
 import sys
-import tkinter as tk
+import customtkinter as ctk
 from tkinter import messagebox
 
 from dotenv import load_dotenv
@@ -73,7 +73,7 @@ def main():
 
     if config is None:
         # Show error dialog
-        root = tk.Tk()
+        root = ctk.CTk()
         root.withdraw()
         messagebox.showerror(
             "Installation Required",
@@ -85,10 +85,16 @@ def main():
         sys.exit(1)
 
     # Start GUI with installation config
-    root = tk.Tk()
+    root = ctk.CTk()
     app = VoiceSnipGUI(root, installation_config=config)
     root.protocol("WM_DELETE_WINDOW", app.on_closing)
-    root.mainloop()
+
+    try:
+        root.mainloop()
+    except KeyboardInterrupt:
+        # Handle Ctrl+C gracefully (same as clicking Quit)
+        app.on_closing()
+        sys.exit(0)
 
 
 if __name__ == "__main__":

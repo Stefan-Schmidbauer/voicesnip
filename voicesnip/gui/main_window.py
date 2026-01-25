@@ -2,15 +2,15 @@
 VoiceSnip Main GUI Window
 
 Main application window with device selection, provider configuration,
-and control buttons.
+and control buttons. Uses CustomTkinter for a modern look.
 """
 
 import os
 import sys
-import tkinter as tk
-from tkinter import ttk, messagebox
+import customtkinter as ctk
+from tkinter import messagebox
 from pathlib import Path
-from PIL import Image, ImageTk
+from PIL import Image
 from pynput import keyboard
 
 from ..constants import (
@@ -26,6 +26,10 @@ from .config_manager import load_config, save_config
 from .device_manager import populate_devices
 from .dialogs import show_about_dialog, show_model_download_info
 
+# Set appearance mode and color theme
+ctk.set_appearance_mode("light")  # "dark", "light", or "system"
+ctk.set_default_color_theme("blue")  # "blue", "green", "dark-blue"
+
 
 def get_resource_path(relative_path: str) -> str:
     """Get absolute path to resource, works for dev and PyInstaller builds."""
@@ -39,7 +43,7 @@ def get_resource_path(relative_path: str) -> str:
 
 
 class VoiceSnipGUI:
-    """Tkinter GUI for VoiceSnip"""
+    """CustomTkinter GUI for VoiceSnip"""
 
     def __init__(self, root, installation_config):
         self.root = root
@@ -59,12 +63,19 @@ class VoiceSnipGUI:
         # Load config
         self.config = load_config()
 
-        # Set window size (either from saved config or default)
-        self.apply_window_size()
+        # Apply UI scaling (only widget scaling, not window scaling to avoid cumulative effect)
+        if 'ui_scaling' in self.config:
+            scaling = self.config['ui_scaling']
+            ctk.set_widget_scaling(scaling)
+
+        # Set window size from config or default
+        width = self.config.get('window_width', 700)
+        height = self.config.get('window_height', 520)
+        self.root.geometry(f"{width}x{height}")
         self.root.resizable(True, True)
 
         # Bind window resize event to save size
-        self.root.bind('<Configure>', self.on_window_configure)
+        self.root.bind('<Configure>', self._on_window_configure)
         self._resize_after_id = None
 
         # Create UI
@@ -76,34 +87,7 @@ class VoiceSnipGUI:
         # Load saved settings
         self.load_settings()
 
-    def scale_window_size(self, base_width, base_height):
-        """Scale window size based on system DPI"""
-        try:
-            # Get DPI scaling factor
-            dpi = self.root.winfo_fpixels('1i')
-            scaling_factor = dpi / 96.0
-            scaling_factor = max(1.0, scaling_factor)
-
-            scaled_width = int(base_width * scaling_factor)
-            scaled_height = int(base_height * scaling_factor)
-
-            return scaled_width, scaled_height
-        except Exception as e:
-            print(f"Could not detect DPI scaling: {e}")
-            return base_width, base_height
-
-    def apply_window_size(self):
-        """Apply window size from config or use default"""
-        if 'window_width' in self.config and 'window_height' in self.config:
-            width = self.config['window_width']
-            height = self.config['window_height']
-        else:
-            base_width, base_height = 660, 420
-            width, height = self.scale_window_size(base_width, base_height)
-
-        self.root.geometry(f"{width}x{height}")
-
-    def on_window_configure(self, event):
+    def _on_window_configure(self, event):
         """Handle window resize/move events"""
         if event.widget != self.root:
             return
@@ -112,9 +96,9 @@ class VoiceSnipGUI:
         if self._resize_after_id:
             self.root.after_cancel(self._resize_after_id)
 
-        self._resize_after_id = self.root.after(500, self.save_window_size)
+        self._resize_after_id = self.root.after(500, self._save_window_size)
 
-    def save_window_size(self):
+    def _save_window_size(self):
         """Save current window size to config"""
         try:
             width = self.root.winfo_width()
@@ -124,50 +108,78 @@ class VoiceSnipGUI:
                 self.config['window_width'] = width
                 self.config['window_height'] = height
                 save_config(self.config)
-        except tk.TclError:
+        except Exception:
             pass
+
+    def toggle_theme(self):
+        """Toggle between light and dark mode"""
+        current = ctk.get_appearance_mode()
+        new_mode = "dark" if current == "Light" else "light"
+        ctk.set_appearance_mode(new_mode)
+        # Update button text
+        self.theme_button.configure(text="Dark theme" if new_mode == "light" else "Light theme")
+        # Save preference
+        self.config['theme'] = new_mode
+        save_config(self.config)
+
+    def adjust_scaling(self, delta):
+        """Adjust UI scaling by delta (e.g., +0.1 or -0.1)"""
+        current = self.config.get('ui_scaling', 1.0)
+        new_scaling = round(current + delta, 1)
+        # Clamp between 0.8 and 1.8
+        new_scaling = max(0.8, min(1.8, new_scaling))
+        if new_scaling != current:
+            self.config['ui_scaling'] = new_scaling
+            save_config(self.config)
+            ctk.set_widget_scaling(new_scaling)
 
     def create_widgets(self):
         """Create GUI widgets"""
-        main_frame = ttk.Frame(self.root, padding="20")
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        # Base font size for the UI
+        label_font = ctk.CTkFont(size=14)
+        combo_font = ctk.CTkFont(size=14)
+        button_font = ctk.CTkFont(size=14)
+        heading_font = ctk.CTkFont(size=16, weight="bold")
 
-        # Logo
-        logo_frame = ttk.Frame(main_frame)
-        logo_frame.pack(pady=(0, 15))
+        # Main scrollable frame
+        main_frame = ctk.CTkFrame(self.root, fg_color="transparent")
+        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
 
-        try:
-            png_path = get_resource_path(os.path.join("assets", "icons", "app", "voicesnip_icon.png"))
-            if os.path.exists(png_path):
-                image = Image.open(png_path)
-                photo = ImageTk.PhotoImage(image)
+        # === Settings Frame ===
+        settings_frame = ctk.CTkFrame(main_frame)
+        settings_frame.pack(fill="x", pady=(0, 10))
 
-                logo_label = ttk.Label(logo_frame, image=photo)
-                logo_label.image = photo
-                logo_label.pack()
+        settings_label = ctk.CTkLabel(
+            settings_frame,
+            text="Settings",
+            font=heading_font
+        )
+        settings_label.pack(anchor="w", padx=15, pady=(10, 5))
 
-                image.close()
-        except Exception as e:
-            print(f"Could not load logo: {e}")
-            title_label = ttk.Label(logo_frame, text="VoiceSnip", font=("Arial", 16, "bold"))
-            title_label.pack()
+        settings_inner = ctk.CTkFrame(settings_frame, fg_color="transparent")
+        settings_inner.pack(fill="x", padx=15, pady=(0, 10))
 
-        # === Settings Frame (contains all configuration options) ===
-        settings_frame = ttk.LabelFrame(main_frame, text="Settings", padding="10")
-        settings_frame.pack(fill=tk.X, pady=(0, 10))
+        # Grid layout for settings
+        settings_inner.columnconfigure(1, weight=1)
 
         # Microphone selection
-        mic_row = ttk.Frame(settings_frame)
-        mic_row.pack(fill=tk.X, pady=(0, 5))
-        ttk.Label(mic_row, text="Microphone:", width=12, anchor='w').pack(side=tk.LEFT)
-        self.mic_combo = ttk.Combobox(mic_row, state="readonly", width=45)
-        self.mic_combo.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        ctk.CTkLabel(settings_inner, text="Microphone:", width=110, anchor="w", font=label_font).grid(
+            row=0, column=0, sticky="w", pady=6
+        )
+        self.mic_combo = ctk.CTkComboBox(settings_inner, state="readonly", width=400, font=combo_font)
+        self.mic_combo.grid(row=0, column=1, sticky="ew", pady=6, padx=(10, 0))
 
         # Provider selection
-        provider_row = ttk.Frame(settings_frame)
-        provider_row.pack(fill=tk.X, pady=(0, 5))
-        ttk.Label(provider_row, text="Provider:", width=12, anchor='w').pack(side=tk.LEFT)
-        self.provider_combo = ttk.Combobox(provider_row, state="readonly", width=45)
+        ctk.CTkLabel(settings_inner, text="Provider:", width=110, anchor="w", font=label_font).grid(
+            row=1, column=0, sticky="w", pady=6
+        )
+        self.provider_combo = ctk.CTkComboBox(
+            settings_inner,
+            state="readonly",
+            width=400,
+            font=combo_font,
+            command=lambda _: self.on_provider_changed()
+        )
 
         # Build provider list dynamically
         self.provider_display_to_name = {}
@@ -193,126 +205,229 @@ class VoiceSnipGUI:
             providers.append(display_name)
             self.provider_display_to_name[display_name] = "deepgram-cloud"
 
-        self.provider_combo['values'] = tuple(providers)
+        self.provider_combo.configure(values=providers)
         if providers:
-            self.provider_combo.current(0)
+            self.provider_combo.set(providers[0])
         else:
             messagebox.showerror("Configuration Error",
                                "No providers available. Please reinstall VoiceSnip.")
             sys.exit(1)
-        self.provider_combo.bind('<<ComboboxSelected>>', lambda e: self.on_provider_changed())
-        self.provider_combo.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.provider_combo.grid(row=1, column=1, sticky="ew", pady=6, padx=(10, 0))
 
         # Model selection
-        model_row = ttk.Frame(settings_frame)
-        model_row.pack(fill=tk.X, pady=(0, 5))
-        ttk.Label(model_row, text="Model:", width=12, anchor='w').pack(side=tk.LEFT)
-        self.model_combo = ttk.Combobox(model_row, state="readonly", width=45)
-        self.model_combo.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        ctk.CTkLabel(settings_inner, text="Model:", width=110, anchor="w", font=label_font).grid(
+            row=2, column=0, sticky="w", pady=6
+        )
+        self.model_combo = ctk.CTkComboBox(settings_inner, state="readonly", width=400, font=combo_font)
+        self.model_combo.grid(row=2, column=1, sticky="ew", pady=6, padx=(10, 0))
 
         # Language selection
-        lang_row = ttk.Frame(settings_frame)
-        lang_row.pack(fill=tk.X, pady=(0, 5))
-        ttk.Label(lang_row, text="Language:", width=12, anchor='w').pack(side=tk.LEFT)
-        self.language_combo = ttk.Combobox(lang_row, state="readonly", width=45)
-        self.language_combo['values'] = LANGUAGE_NAMES
-        # Default to German (index 3 in alphabetical list)
-        self.language_combo.current(LANGUAGE_CODE_TO_INDEX.get('de', 0))
-        self.language_combo.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        ctk.CTkLabel(settings_inner, text="Language:", width=110, anchor="w", font=label_font).grid(
+            row=3, column=0, sticky="w", pady=6
+        )
+        self.language_combo = ctk.CTkComboBox(settings_inner, state="readonly", width=400, font=combo_font, values=LANGUAGE_NAMES)
+        # Default to German
+        self.language_combo.set(LANGUAGE_NAMES[LANGUAGE_CODE_TO_INDEX.get('de', 0)])
+        self.language_combo.grid(row=3, column=1, sticky="ew", pady=6, padx=(10, 0))
 
         # Hotkey configuration
-        hotkey_row = ttk.Frame(settings_frame)
-        hotkey_row.pack(fill=tk.X, pady=(0, 5))
-        ttk.Label(hotkey_row, text="Hotkey:", width=12, anchor='w').pack(side=tk.LEFT)
-        self.hotkey_var = tk.StringVar(value=DEFAULT_HOTKEY)
-        self.hotkey_entry = ttk.Entry(hotkey_row, textvariable=self.hotkey_var, width=20)
-        self.hotkey_entry.pack(side=tk.LEFT, padx=(0, 5))
-        self.record_hotkey_button = ttk.Button(hotkey_row, text="Record", command=self.start_hotkey_recording)
-        self.record_hotkey_button.pack(side=tk.LEFT)
+        ctk.CTkLabel(settings_inner, text="Hotkey:", width=110, anchor="w", font=label_font).grid(
+            row=4, column=0, sticky="w", pady=6
+        )
+        hotkey_frame = ctk.CTkFrame(settings_inner, fg_color="transparent")
+        hotkey_frame.grid(row=4, column=1, sticky="ew", pady=6, padx=(10, 0))
+
+        self.record_hotkey_button = ctk.CTkButton(
+            hotkey_frame,
+            text="Record",
+            command=self.start_hotkey_recording,
+            width=100,
+            font=button_font,
+            text_color=("gray10", "gray90"),
+            text_color_disabled=("gray70", "gray40")
+        )
+        self.record_hotkey_button.pack(side="right")
+
+        self.hotkey_entry = ctk.CTkEntry(hotkey_frame, font=combo_font)
+        self.hotkey_entry.insert(0, DEFAULT_HOTKEY)
+        self.hotkey_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
 
         self.hotkey_recording = False
         self.hotkey_listener = None
 
-        # Status display (inside settings frame)
-        status_row = ttk.Frame(settings_frame)
-        status_row.pack(fill=tk.X, pady=(5, 0))
-        ttk.Label(status_row, text="Status:", width=12, anchor='w').pack(side=tk.LEFT)
-        self.status_label = ttk.Label(status_row, text="Ready", foreground="gray")
-        self.status_label.pack(side=tk.LEFT)
+        # Status display with theme toggle on the right
+        ctk.CTkLabel(settings_inner, text="Status:", width=110, anchor="w", font=label_font).grid(
+            row=5, column=0, sticky="w", pady=6
+        )
+        status_frame = ctk.CTkFrame(settings_inner, fg_color="transparent")
+        status_frame.grid(row=5, column=1, sticky="ew", pady=6, padx=(10, 0))
+
+        self.status_label = ctk.CTkLabel(
+            status_frame,
+            text="Ready",
+            font=label_font,
+            text_color=("gray50", "gray70")
+        )
+        self.status_label.pack(side="left")
+
+        self.theme_button = ctk.CTkButton(
+            status_frame,
+            text="Dark theme",
+            command=self.toggle_theme,
+            width=110,
+            height=28,
+            font=ctk.CTkFont(size=13),
+            fg_color=("gray75", "gray25"),
+            hover_color=("gray65", "gray35"),
+            text_color=("gray10", "gray90")
+        )
+        self.theme_button.pack(side="right")
+
+        # Font size buttons
+        self.font_increase_button = ctk.CTkButton(
+            status_frame,
+            text="A+",
+            command=lambda: self.adjust_scaling(0.1),
+            width=36,
+            height=28,
+            font=ctk.CTkFont(size=13),
+            fg_color=("gray75", "gray25"),
+            hover_color=("gray65", "gray35"),
+            text_color=("gray10", "gray90")
+        )
+        self.font_increase_button.pack(side="right", padx=(0, 5))
+
+        self.font_decrease_button = ctk.CTkButton(
+            status_frame,
+            text="A-",
+            command=lambda: self.adjust_scaling(-0.1),
+            width=36,
+            height=28,
+            font=ctk.CTkFont(size=13),
+            fg_color=("gray75", "gray25"),
+            hover_color=("gray65", "gray35"),
+            text_color=("gray10", "gray90")
+        )
+        self.font_decrease_button.pack(side="right", padx=(0, 5))
 
         # === Transcription Frame ===
-        transcription_frame = ttk.LabelFrame(main_frame, text="Transcription", padding="10")
-        transcription_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+        transcription_frame = ctk.CTkFrame(main_frame)
+        transcription_frame.pack(fill="both", expand=True, pady=(0, 10))
 
-        # Text widget with scrollbar
-        text_container = ttk.Frame(transcription_frame)
-        text_container.pack(fill=tk.BOTH, expand=True)
-
-        self.transcription_text = tk.Text(
-            text_container,
-            height=2,
-            wrap=tk.WORD,
-            state=tk.DISABLED,
-            font=("TkDefaultFont", 10)
+        transcription_label = ctk.CTkLabel(
+            transcription_frame,
+            text="Transcription",
+            font=heading_font
         )
-        scrollbar = ttk.Scrollbar(text_container, orient=tk.VERTICAL, command=self.transcription_text.yview)
-        self.transcription_text.configure(yscrollcommand=scrollbar.set)
+        transcription_label.pack(anchor="w", padx=15, pady=(10, 5))
 
-        self.transcription_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        # Text widget
+        self.transcription_text = ctk.CTkTextbox(
+            transcription_frame,
+            height=80,
+            wrap="word",
+            state="disabled",
+            font=ctk.CTkFont(size=15)
+        )
+        self.transcription_text.pack(fill="both", expand=True, padx=15, pady=(0, 10))
 
         # Transcription buttons frame
-        transcription_buttons = ttk.Frame(transcription_frame)
-        transcription_buttons.pack(fill=tk.X, pady=(10, 0))
+        transcription_buttons = ctk.CTkFrame(transcription_frame, fg_color="transparent")
+        transcription_buttons.pack(fill="x", padx=15, pady=(0, 10))
 
-        self.copy_button = ttk.Button(
+        self.copy_button = ctk.CTkButton(
             transcription_buttons,
             text="Copy to Clipboard",
             command=self.copy_transcription,
-            state=tk.DISABLED
+            state="disabled",
+            width=160,
+            font=button_font,
+            text_color=("gray10", "gray90"),
+            text_color_disabled=("gray70", "gray40")
         )
-        self.copy_button.pack(side=tk.LEFT, padx=(0, 10))
+        self.copy_button.pack(side="left", padx=(0, 10))
 
         # Auto-clipboard checkbox
-        self.auto_clipboard_var = tk.BooleanVar(value=False)
-        self.auto_clipboard_check = ttk.Checkbutton(
+        self.auto_clipboard_var = ctk.BooleanVar(value=False)
+        self.auto_clipboard_check = ctk.CTkCheckBox(
             transcription_buttons,
             text="Auto-copy to clipboard",
-            variable=self.auto_clipboard_var
+            variable=self.auto_clipboard_var,
+            font=label_font
         )
-        self.auto_clipboard_check.pack(side=tk.LEFT)
+        self.auto_clipboard_check.pack(side="left")
 
         # Record button for GUI-based recording (useful for Wayland)
-        self.gui_record_button = ttk.Button(
+        self.gui_record_button = ctk.CTkButton(
             transcription_buttons,
             text="Start Recording",
             command=self.toggle_gui_recording,
-            state=tk.DISABLED,
-            width=15
+            state="disabled",
+            width=160,
+            font=button_font,
+            fg_color=("#3a7ebf", "#1f538d"),
+            hover_color=("#325882", "#14375e"),
+            text_color=("gray10", "gray90"),
+            text_color_disabled=("gray70", "gray40")
         )
-        self.gui_record_button.pack(side=tk.RIGHT)
+        self.gui_record_button.pack(side="right")
 
-        # === Buttons Frame ===
-        button_frame = ttk.Frame(main_frame)
+        # === Control Buttons Frame ===
+        button_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
         button_frame.pack(pady=(10, 0))
 
-        self.start_button = ttk.Button(button_frame, text="Start", command=self.start, width=12)
-        self.start_button.pack(side=tk.LEFT, padx=5)
+        self.start_button = ctk.CTkButton(
+            button_frame,
+            text="Start",
+            command=self.start,
+            width=110,
+            font=button_font,
+            fg_color=("#2d8f2d", "#1e6b1e"),
+            hover_color=("#247024", "#155215"),
+            text_color=("gray10", "gray90"),
+            text_color_disabled=("gray70", "gray40")
+        )
+        self.start_button.pack(side="left", padx=5)
 
-        self.stop_button = ttk.Button(button_frame, text="Stop", command=self.stop, state=tk.DISABLED, width=12)
-        self.stop_button.pack(side=tk.LEFT, padx=5)
+        self.stop_button = ctk.CTkButton(
+            button_frame,
+            text="Stop",
+            command=self.stop,
+            state="disabled",
+            width=110,
+            font=button_font,
+            fg_color=("#c44040", "#8b2d2d"),
+            hover_color=("#9e3333", "#6b2323"),
+            text_color=("gray10", "gray90"),
+            text_color_disabled=("gray70", "gray40")
+        )
+        self.stop_button.pack(side="left", padx=5)
 
-        self.about_button = ttk.Button(button_frame, text="About", command=self.show_about, width=12)
-        self.about_button.pack(side=tk.LEFT, padx=5)
+        self.about_button = ctk.CTkButton(
+            button_frame,
+            text="About",
+            command=self.show_about,
+            width=110,
+            font=button_font
+        )
+        self.about_button.pack(side="left", padx=5)
 
-        self.quit_button = ttk.Button(button_frame, text="Quit", command=self.on_closing, width=12)
-        self.quit_button.pack(side=tk.LEFT, padx=5)
+        self.quit_button = ctk.CTkButton(
+            button_frame,
+            text="Quit",
+            command=self.on_closing,
+            width=110,
+            font=button_font,
+            fg_color=("gray60", "gray40"),
+            hover_color=("gray50", "gray30")
+        )
+        self.quit_button.pack(side="left", padx=5)
 
     def populate_devices(self):
         """Populate microphone dropdown with available devices"""
         self.device_list, display_names, default_idx = populate_devices()
 
-        self.mic_combo['values'] = tuple(display_names)
+        self.mic_combo.configure(values=display_names)
 
         # Select default device
         if self.device_list:
@@ -320,21 +435,29 @@ class VoiceSnipGUI:
             if default_idx is not None:
                 for pos, (idx, name, _) in enumerate(self.device_list):
                     if idx == default_idx:
-                        self.mic_combo.current(pos)
+                        self.mic_combo.set(display_names[pos])
                         default_selected = True
                         break
 
             if not default_selected and len(self.device_list) == 1:
-                self.mic_combo.current(0)
+                self.mic_combo.set(display_names[0])
 
     def load_settings(self):
         """Load saved settings into GUI"""
+        # Load theme preference
+        if 'theme' in self.config:
+            theme = self.config['theme']
+            ctk.set_appearance_mode(theme)
+            self.theme_button.configure(text="Dark theme" if theme == "light" else "Light theme")
+
+        display_names = list(self.mic_combo.cget("values"))
+
         if 'device_name' in self.config:
             saved_name = self.config['device_name']
             found = False
             for pos, (idx, name, _) in enumerate(self.device_list):
                 if name == saved_name:
-                    self.mic_combo.current(pos)
+                    self.mic_combo.set(display_names[pos])
                     found = True
                     break
 
@@ -342,16 +465,17 @@ class VoiceSnipGUI:
                 for pos, (idx, name, _) in enumerate(self.device_list):
                     if ':' in name and ':' in saved_name:
                         if name.split(':')[0].strip() == saved_name.split(':')[0].strip():
-                            self.mic_combo.current(pos)
+                            self.mic_combo.set(display_names[pos])
                             break
 
         if 'language' in self.config:
             lang_code = self.config['language']
             if lang_code in LANGUAGE_CODE_TO_INDEX:
-                self.language_combo.current(LANGUAGE_CODE_TO_INDEX[lang_code])
+                self.language_combo.set(LANGUAGE_NAMES[LANGUAGE_CODE_TO_INDEX[lang_code]])
 
         if 'hotkey' in self.config:
-            self.hotkey_var.set(self.config['hotkey'])
+            self.hotkey_entry.delete(0, "end")
+            self.hotkey_entry.insert(0, self.config['hotkey'])
 
         # Load provider settings
         if 'provider' in self.config:
@@ -370,11 +494,7 @@ class VoiceSnipGUI:
 
             for display_name, internal_name in self.provider_display_to_name.items():
                 if internal_name == selected_provider:
-                    values = self.provider_combo['values']
-                    for idx, val in enumerate(values):
-                        if val == display_name:
-                            self.provider_combo.current(idx)
-                            break
+                    self.provider_combo.set(display_name)
                     break
 
         # Load auto-clipboard setting
@@ -391,7 +511,7 @@ class VoiceSnipGUI:
         """Populate model dropdown based on selected provider"""
         selected_display = self.provider_combo.get()
         if not selected_display or selected_display not in self.provider_display_to_name:
-            self.model_combo['values'] = []
+            self.model_combo.configure(values=[])
             return
 
         provider_name = self.provider_display_to_name[selected_display]
@@ -407,27 +527,27 @@ class VoiceSnipGUI:
             from providers import create_provider
             provider = create_provider(provider_name)
             models = provider.get_available_models()
-            self.model_combo['values'] = models
+            self.model_combo.configure(values=models)
 
             # Disable model dropdown if no models available (e.g. for server-based providers)
             if not models:
                 self.model_combo.set("N/A (configured externally)")
-                self.model_combo.config(state='disabled')
+                self.model_combo.configure(state='disabled')
             else:
-                self.model_combo.config(state='readonly')
+                self.model_combo.configure(state='readonly')
                 saved_model = self.config.get('provider', {}).get(base_provider, {}).get('model')
 
                 if saved_model and saved_model in models:
                     self.model_combo.set(saved_model)
                 elif models:
-                    self.model_combo.current(0)
+                    self.model_combo.set(models[0])
 
             if 'language' in self.config:
                 lang_code = self.config['language']
                 if lang_code in LANGUAGE_CODE_TO_INDEX:
-                    self.language_combo.current(LANGUAGE_CODE_TO_INDEX[lang_code])
+                    self.language_combo.set(LANGUAGE_NAMES[LANGUAGE_CODE_TO_INDEX[lang_code]])
         except Exception as e:
-            self.model_combo['values'] = []
+            self.model_combo.configure(values=[])
             print(f"Error loading models for {provider_name}: {e}")
 
     def update_status(self, message):
@@ -435,13 +555,13 @@ class VoiceSnipGUI:
         def _update():
             try:
                 if self.status_label.winfo_exists():
-                    self.status_label.config(text=message)
-            except tk.TclError:
+                    self.status_label.configure(text=message)
+            except Exception:
                 pass
 
         try:
             self.root.after(0, _update)
-        except tk.TclError:
+        except Exception:
             pass
 
     def start_hotkey_recording(self):
@@ -455,8 +575,8 @@ class VoiceSnipGUI:
 
         self.hotkey_recording = True
         self.recorded_keys = set()
-        self.record_hotkey_button.config(text="Recording...", state=tk.DISABLED)
-        self.hotkey_entry.config(state=tk.DISABLED)
+        self.record_hotkey_button.configure(text="Recording...", state="disabled")
+        self.hotkey_entry.configure(state="disabled")
 
         self.hotkey_listener = keyboard.Listener(
             on_press=self.on_hotkey_record_press,
@@ -477,7 +597,9 @@ class VoiceSnipGUI:
 
         if self.recorded_keys:
             hotkey_string = format_hotkey(self.recorded_keys)
-            self.hotkey_var.set(hotkey_string)
+            self.hotkey_entry.configure(state="normal")
+            self.hotkey_entry.delete(0, "end")
+            self.hotkey_entry.insert(0, hotkey_string)
             self.stop_hotkey_recording()
 
     def stop_hotkey_recording(self):
@@ -487,8 +609,8 @@ class VoiceSnipGUI:
             self.hotkey_listener.stop()
             self.hotkey_listener = None
 
-        self.record_hotkey_button.config(text="Record", state=tk.NORMAL)
-        self.hotkey_entry.config(state=tk.NORMAL)
+        self.record_hotkey_button.configure(text="Record", state="normal")
+        self.hotkey_entry.configure(state="normal")
         self.recorded_keys = set()
 
     def start(self):
@@ -505,23 +627,28 @@ class VoiceSnipGUI:
             self.config['wayland_info_shown'] = True
             save_config(self.config)
 
-        selected_idx = self.mic_combo.current()
-        if selected_idx < 0:
+        # Get selected mic index
+        selected_display = self.mic_combo.get()
+        display_names = list(self.mic_combo.cget("values"))
+        if not selected_display or selected_display not in display_names:
             messagebox.showerror("Error", "Please select a microphone.")
             return
+        selected_idx = display_names.index(selected_display)
 
         device_id, device_name, sample_rate = self.device_list[selected_idx]
 
-        lang_idx = self.language_combo.current()
+        # Get language
+        selected_lang = self.language_combo.get()
+        lang_idx = LANGUAGE_NAMES.index(selected_lang) if selected_lang in LANGUAGE_NAMES else 0
         language = LANGUAGE_INDEX_TO_CODE.get(lang_idx, 'de')
 
-        hotkey = self.hotkey_var.get()
+        hotkey = self.hotkey_entry.get()
 
-        selected_display = self.provider_combo.get()
-        if not selected_display or selected_display not in self.provider_display_to_name:
+        selected_provider_display = self.provider_combo.get()
+        if not selected_provider_display or selected_provider_display not in self.provider_display_to_name:
             messagebox.showerror("Error", "Please select a valid provider.")
             return
-        provider_name = self.provider_display_to_name[selected_display]
+        provider_name = self.provider_display_to_name[selected_provider_display]
 
         # Determine base provider for config storage
         if 'whisper' in provider_name and 'server' not in provider_name:
@@ -599,11 +726,11 @@ class VoiceSnipGUI:
             self.root.update()
         except ValueError as e:
             messagebox.showerror("Provider Error", str(e))
-            self.update_status("❌ Failed to initialize")
+            self.update_status("Failed to initialize")
             return
         except Exception as e:
             messagebox.showerror("Error", f"Unexpected error: {e}")
-            self.update_status("❌ Failed to initialize")
+            self.update_status("Failed to initialize")
             return
 
         # Start keyboard listener
@@ -622,37 +749,37 @@ class VoiceSnipGUI:
                     pass
                 self.listener = None
             messagebox.showerror("Error", f"Failed to start keyboard listener: {e}")
-            self.update_status("❌ Failed to start")
+            self.update_status("Failed to start")
             return
 
         # Update UI
         try:
             self.is_active = True
             if self.start_button.winfo_exists():
-                self.start_button.config(state=tk.DISABLED)
+                self.start_button.configure(state="disabled")
             if self.stop_button.winfo_exists():
-                self.stop_button.config(state=tk.NORMAL)
+                self.stop_button.configure(state="normal")
             if self.mic_combo.winfo_exists():
-                self.mic_combo.config(state=tk.DISABLED)
+                self.mic_combo.configure(state="disabled")
             if self.provider_combo.winfo_exists():
-                self.provider_combo.config(state=tk.DISABLED)
+                self.provider_combo.configure(state="disabled")
             if self.model_combo.winfo_exists():
-                self.model_combo.config(state=tk.DISABLED)
+                self.model_combo.configure(state="disabled")
             if self.hotkey_entry.winfo_exists():
-                self.hotkey_entry.config(state=tk.DISABLED)
+                self.hotkey_entry.configure(state="disabled")
             if self.record_hotkey_button.winfo_exists():
-                self.record_hotkey_button.config(state=tk.DISABLED)
+                self.record_hotkey_button.configure(state="disabled")
             if self.language_combo.winfo_exists():
-                self.language_combo.config(state=tk.DISABLED)
+                self.language_combo.configure(state="disabled")
             if self.gui_record_button.winfo_exists():
-                self.gui_record_button.config(state=tk.NORMAL)
+                self.gui_record_button.configure(state="normal")
 
             # Show appropriate status message
             if self.is_wayland:
-                self.update_status("✅ Active - Use Record button (Wayland)")
+                self.update_status("Active - Use Record button (Wayland)")
             else:
-                self.update_status("✅ Active - Waiting for hotkey...")
-        except tk.TclError as e:
+                self.update_status("Active - Waiting for hotkey...")
+        except Exception as e:
             print(f"Warning: GUI widget error during startup: {e}")
             if self.listener:
                 self.listener.stop()
@@ -675,26 +802,26 @@ class VoiceSnipGUI:
         try:
             self.is_active = False
             if self.start_button.winfo_exists():
-                self.start_button.config(state=tk.NORMAL)
+                self.start_button.configure(state="normal")
             if self.stop_button.winfo_exists():
-                self.stop_button.config(state=tk.DISABLED)
+                self.stop_button.configure(state="disabled")
             if self.mic_combo.winfo_exists():
-                self.mic_combo.config(state="readonly")
+                self.mic_combo.configure(state="readonly")
             if self.provider_combo.winfo_exists():
-                self.provider_combo.config(state="readonly")
+                self.provider_combo.configure(state="readonly")
             if self.model_combo.winfo_exists():
-                self.model_combo.config(state="readonly")
+                self.model_combo.configure(state="readonly")
             if self.hotkey_entry.winfo_exists():
-                self.hotkey_entry.config(state=tk.NORMAL)
+                self.hotkey_entry.configure(state="normal")
             if self.record_hotkey_button.winfo_exists():
-                self.record_hotkey_button.config(state=tk.NORMAL)
+                self.record_hotkey_button.configure(state="normal")
             if self.language_combo.winfo_exists():
-                self.language_combo.config(state="readonly")
+                self.language_combo.configure(state="readonly")
             if self.gui_record_button.winfo_exists():
-                self.gui_record_button.config(state=tk.DISABLED, text="Start Recording")
+                self.gui_record_button.configure(state="disabled", text="Start Recording")
             self.is_gui_recording = False
             self.update_status("Ready")
-        except tk.TclError:
+        except Exception:
             pass
 
     def on_closing(self):
@@ -712,25 +839,25 @@ class VoiceSnipGUI:
         def _update():
             try:
                 if self.transcription_text.winfo_exists():
-                    self.transcription_text.config(state=tk.NORMAL)
-                    self.transcription_text.delete(1.0, tk.END)
-                    self.transcription_text.insert(tk.END, text)
-                    self.transcription_text.config(state=tk.DISABLED)
+                    self.transcription_text.configure(state="normal")
+                    self.transcription_text.delete("1.0", "end")
+                    self.transcription_text.insert("end", text)
+                    self.transcription_text.configure(state="disabled")
                     self.last_transcription = text
 
                     # Enable copy button
                     if self.copy_button.winfo_exists():
-                        self.copy_button.config(state=tk.NORMAL)
+                        self.copy_button.configure(state="normal")
 
                     # Auto-copy to clipboard if enabled
                     if self.auto_clipboard_var.get():
                         self.copy_to_clipboard(text)
-            except tk.TclError:
+            except Exception:
                 pass
 
         try:
             self.root.after(0, _update)
-        except tk.TclError:
+        except Exception:
             pass
 
     def copy_transcription(self):
@@ -745,7 +872,7 @@ class VoiceSnipGUI:
             self.root.clipboard_clear()
             self.root.clipboard_append(text)
             self.root.update_idletasks()  # Process clipboard without triggering after() callbacks
-        except tk.TclError:
+        except Exception:
             pass
 
     def toggle_gui_recording(self):
@@ -756,10 +883,10 @@ class VoiceSnipGUI:
         if self.is_gui_recording:
             # Stop recording
             self.is_gui_recording = False
-            self.gui_record_button.config(text="Start Recording")
+            self.gui_record_button.configure(text="Start Recording")
             self.core.stop_recording()
         else:
             # Start recording
             self.is_gui_recording = True
-            self.gui_record_button.config(text="Stop Recording")
+            self.gui_record_button.configure(text="Stop Recording")
             self.core.start_recording()

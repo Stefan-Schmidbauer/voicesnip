@@ -117,7 +117,7 @@ class VoiceSnipCore:
                 text = self.transcribe(audio_bytes)
 
                 if text:
-                    self.update_status(f"✅ Transcribed: {text}")
+                    self.update_status("✅ Transcription complete")
                     self.notify_text(text)
                     insert_text(text)
                 else:

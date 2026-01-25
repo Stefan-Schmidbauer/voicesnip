@@ -12,6 +12,8 @@ Push-to-Talk Speech-to-Text for Linux and Windows. Hold a hotkey, speak, release
 - **GPU Acceleration**: Much faster with NVIDIA GPU
 - **Configurable Hotkeys**: Any key combination (Ctrl+Space, Alt+R, etc.)
 - **Multi-Language**: 10 languages (German, English, French, Spanish, etc.) + Auto-Detection
+- **Dark/Light Mode**: Switch between dark and light themes
+- **Adjustable Font Size**: A-/A+ buttons to customize text size
 
 ## Download
 

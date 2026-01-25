@@ -758,7 +758,7 @@ python install.py --rebuild-venv
 
 MIT License - see [LICENSE](quickstrap/LICENSE) file for details.
 
-Copyright (c) 2025 Stefan Schmidbauer
+Copyright (c) Stefan Schmidbauer
 
 ## Contributing
 

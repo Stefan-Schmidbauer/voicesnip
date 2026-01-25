@@ -286,7 +286,10 @@ jobs:
             name="${dir%/}"
             if [[ "$name" == *"Windows"* ]]; then
               echo "Creating ZIP for $name"
-              zip -r "../${name}.zip" "$name"
+              zip -9 -r "../${name}.zip" "$name"
+            elif [[ "$name" == *"CUDA"* ]]; then
+              echo "Creating tar.xz for $name (high compression for CUDA)"
+              tar -cf - "$name" | xz -9 -T0 > "../${name}.tar.xz"
             else
               echo "Creating tar.gz for $name"
               tar -czvf "../${name}.tar.gz" "$name"
@@ -295,7 +298,7 @@ jobs:
           cd ..
           echo ""
           echo "Created archives:"
-          ls -la *.zip *.tar.gz 2>/dev/null || true
+          ls -la *.zip *.tar.gz *.tar.xz 2>/dev/null || true
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -303,6 +306,7 @@ jobs:
           files: |
             *.zip
             *.tar.gz
+            *.tar.xz
           generate_release_notes: true
           body: |
             ## Downloads
@@ -317,7 +321,7 @@ jobs:
             | File | Description |
             |------|-------------|
             | `VoiceSnip-Linux.tar.gz` | CPU-only AppImage (Deepgram Cloud + Whisper CPU) |
-            | `VoiceSnip-Linux-CUDA.tar.gz` | GPU-accelerated AppImage (requires NVIDIA GPU + CUDA) |
+            | `VoiceSnip-Linux-CUDA.tar.xz` | GPU-accelerated AppImage (requires NVIDIA GPU + CUDA) |
 
             ---
 
@@ -332,9 +336,9 @@ jobs:
             > **Note:** Windows may show an "Unknown publisher" warning. Click "More info" → "Run anyway".
 
             ### Linux
-            1. Download the appropriate tar.gz for your system
-            2. Extract: `tar -xzf VoiceSnip-Linux*.tar.gz`
-            3. Edit `.env` and add your API keys (optional, only for Deepgram)
+            1. Download the appropriate archive for your system
+            2. Extract: `tar -xf VoiceSnip-Linux*.tar.*` (works for both .tar.gz and .tar.xz)
+            3. Edit `voicesnip.ini` and add your API keys (optional, only for Deepgram)
             4. Make executable: `chmod +x *.AppImage`
             5. Run: `./VoiceSnip-Linux*.AppImage`
 
@@ -347,7 +351,7 @@ jobs:
             - Uses CPU for local Whisper transcription
             - Smaller download size
 
-            **CUDA versions** (`VoiceSnip-Windows-CUDA.zip` / `VoiceSnip-Linux-CUDA.tar.gz`):
+            **CUDA versions** (`VoiceSnip-Windows-CUDA.zip` / `VoiceSnip-Linux-CUDA.tar.xz`):
             - Requires NVIDIA GPU with CUDA installed
             - Much faster local transcription
             - Larger download size

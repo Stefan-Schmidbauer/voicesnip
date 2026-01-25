@@ -219,7 +219,7 @@ jobs:
           mkdir dist-package
           cp ${{ matrix.name }}.AppImage dist-package/
           cp voicesnip_profile.ini dist-package/
-          cp .env.example dist-package/.env
+          cp .env.example dist-package/voicesnip.ini
           cp README.md dist-package/
           cp LICENSE dist-package/
           [ -f voicesnip.png ] && cp voicesnip.png dist-package/ || true

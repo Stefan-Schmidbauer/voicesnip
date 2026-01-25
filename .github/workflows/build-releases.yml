@@ -149,9 +149,29 @@ jobs:
           pip install -r ${{ matrix.requirements }}
           pip install pyinstaller
 
+      - name: Debug CUDA library locations
+        if: matrix.profile == 'cuda'
+        run: |
+          echo "=== Finding cublas .so files ==="
+          python -c "import nvidia.cublas; print(nvidia.cublas.__path__)" || true
+          find $(python -c "import site; print(site.getsitepackages()[0])")/nvidia -name "*.so*" 2>/dev/null | head -20 || true
+        continue-on-error: true
+
+      - name: Collect CUDA shared libraries
+        if: matrix.profile == 'cuda'
+        run: |
+          SITE_PACKAGES=$(python -c "import site; print(site.getsitepackages()[0])")
+          NVIDIA_DIR="${SITE_PACKAGES}/nvidia"
+          SO_ARGS=""
+          for sofile in $(find "${NVIDIA_DIR}" -name "*.so*" -type f 2>/dev/null); do
+            SO_ARGS="${SO_ARGS} --add-binary ${sofile}:."
+          done
+          echo "CUDA_SO_ARGS=${SO_ARGS}" >> $GITHUB_ENV
+          echo "Found CUDA libraries: $(echo ${SO_ARGS} | wc -w) files"
+
       - name: Build binary with PyInstaller
         run: |
-          pyinstaller --onefile --name VoiceSnip --add-data "assets:assets" --hidden-import pynput.keyboard._xorg --hidden-import pynput.mouse._xorg ${{ matrix.pyinstaller_extras }} main.py
+          pyinstaller --onefile --name VoiceSnip --add-data "assets:assets" --hidden-import pynput.keyboard._xorg --hidden-import pynput.mouse._xorg ${{ matrix.pyinstaller_extras }} ${CUDA_SO_ARGS} main.py
 
       - name: Download appimagetool
         run: |
@@ -193,6 +213,10 @@ jobs:
           SELF=$(readlink -f "$0")
           HERE=${SELF%/*}
           export PATH="${HERE}/usr/bin:${PATH}"
+          # Set LD_LIBRARY_PATH for CUDA libraries (if present)
+          if [ -d "${HERE}/usr/lib" ]; then
+            export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
+          fi
           exec "${HERE}/usr/bin/VoiceSnip" "$@"
           APPRUN
           sed -i 's/^[[:space:]]*//' AppDir/AppRun

@@ -16,11 +16,18 @@ def get_platform_config_dir():
 
     Config files are stored in the project directory for portability.
     For PyInstaller builds, this is the directory containing the executable.
+    For AppImage builds, this is the directory containing the AppImage file.
     For normal Python execution, this is the project root directory.
     """
     if getattr(sys, 'frozen', False):
-        # PyInstaller: use directory of the executable
-        return Path(sys.executable).parent
+        # Check if running as AppImage (Linux)
+        appimage_path = os.environ.get('APPIMAGE')
+        if appimage_path:
+            # AppImage: use directory containing the .AppImage file
+            return Path(appimage_path).parent
+        else:
+            # Regular PyInstaller: use directory of the executable
+            return Path(sys.executable).parent
     else:
         # Normal Python: use project root (parent of voicesnip package)
         return Path(__file__).parent.parent

@@ -49,12 +49,15 @@ jobs:
 
       - name: Generate profile config
         run: |
-          @"
+          $content = @"
           [installation]
           profile = ${{ matrix.profile }}
           features = ${{ matrix.features }}
           install_date = $(Get-Date -Format o)
-          "@ | Out-File -FilePath "voicesnip_profile.ini" -Encoding utf8
+          "@
+          # Remove leading spaces from each line (YAML indentation artifact)
+          $content = ($content -split "`n" | ForEach-Object { $_.TrimStart() }) -join "`n"
+          $content | Out-File -FilePath "voicesnip_profile.ini" -Encoding utf8 -NoNewline
         shell: pwsh
 
       - name: Prepare distribution package
@@ -155,6 +158,7 @@ jobs:
           Comment=Voice-to-text transcription tool
           Terminal=false
           DESKTOP
+          sed -i 's/^[[:space:]]*//' AppDir/voicesnip.desktop
 
           cp AppDir/voicesnip.desktop AppDir/usr/share/applications/
 
@@ -166,6 +170,7 @@ jobs:
           export PATH="${HERE}/usr/bin:${PATH}"
           exec "${HERE}/usr/bin/VoiceSnip" "$@"
           APPRUN
+          sed -i 's/^[[:space:]]*//' AppDir/AppRun
 
           chmod +x AppDir/AppRun
 
@@ -175,12 +180,14 @@ jobs:
 
       - name: Generate profile config
         run: |
-          cat > voicesnip_profile.ini << 'EOF'
+          cat > voicesnip_profile.ini << EOF
           [installation]
           profile = ${{ matrix.profile }}
           features = ${{ matrix.features }}
           install_date = $(date -Iseconds)
           EOF
+          # Remove leading spaces from each line (YAML indentation artifact)
+          sed -i 's/^[[:space:]]*//' voicesnip_profile.ini
 
       - name: Prepare distribution package
         run: |

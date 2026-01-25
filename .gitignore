@@ -39,6 +39,9 @@ Thumbs.db
 claude.md
 docs/
 
+# Planning files
+.planning/
+
 # Blog assets (drafts, images, article files)
 blog/
 fix-ssl-cert.sh

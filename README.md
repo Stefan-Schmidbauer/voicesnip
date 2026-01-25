@@ -38,7 +38,7 @@ Download the latest release for your platform:
 2. Run VoiceSnip.exe
 ```
 
-> **Note:** Windows may show a SmartScreen warning ("Unknown publisher"). Click **"More info"** → **"Run anyway"**. This is normal for unsigned open-source software.
+> **Note:** Windows may show an "Unknown publisher" warning. Click **"More info"** → **"Run anyway"**. This is normal for unsigned open-source software.
 
 **Linux:**
 ```bash

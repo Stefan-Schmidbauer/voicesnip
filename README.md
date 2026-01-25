@@ -19,14 +19,14 @@ Push-to-Talk Speech-to-Text for Linux and Windows. Hold a hotkey, speak, release
 
 Download the latest release for your platform:
 
-| Platform | CPU Version | GPU Version (NVIDIA) |
-|----------|-------------|----------------------|
-| **Windows** | [VoiceSnip-Windows.zip](https://github.com/Stefan-Schmidbauer/voicesnip/releases/latest) | [VoiceSnip-Windows-CUDA.zip](https://github.com/Stefan-Schmidbauer/voicesnip/releases/latest) |
-| **Linux** | [VoiceSnip-Linux.tar.gz](https://github.com/Stefan-Schmidbauer/voicesnip/releases/latest) | [VoiceSnip-Linux-CUDA.tar.gz](https://github.com/Stefan-Schmidbauer/voicesnip/releases/latest) |
+| Platform | Download |
+|----------|----------|
+| **Windows** | [VoiceSnip-Windows.zip](https://github.com/Stefan-Schmidbauer/voicesnip/releases/latest) |
+| **Linux** | [VoiceSnip-Linux.tar.gz](https://github.com/Stefan-Schmidbauer/voicesnip/releases/latest) |
 
-**Which version?**
-- **CPU**: Works everywhere, uses processor for transcription
-- **CUDA**: Much faster transcription, requires NVIDIA GPU with CUDA installed
+These builds include CPU-based local transcription (Whisper), Faster Whisper Server, and Deepgram Cloud support.
+
+> **GPU/CUDA Support:** For GPU-accelerated transcription, use the [Python installation](#python-installation-for-cuda). Standalone CUDA builds are coming soon.
 
 ## Quick Start
 
@@ -97,9 +97,9 @@ Wayland blocks global keyboard hooks for security reasons. VoiceSnip provides an
 
 # For Developers
 
-## Installation from Source
+## Python Installation for CUDA
 
-For development or if you prefer running from source:
+For GPU-accelerated transcription or development, install from source:
 
 ### Requirements
 

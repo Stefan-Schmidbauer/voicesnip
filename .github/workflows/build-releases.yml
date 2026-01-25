@@ -304,31 +304,26 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            *.zip
-            *.tar.gz
-            *.tar.xz
+            VoiceSnip-Windows.zip
+            VoiceSnip-Linux.tar.gz
           generate_release_notes: true
           body: |
             ## Downloads
 
-            ### Windows
-            | File | Description |
-            |------|-------------|
-            | `VoiceSnip-Windows.zip` | CPU-only (Deepgram Cloud + Whisper CPU) |
-            | `VoiceSnip-Windows-CUDA.zip` | GPU-accelerated (requires NVIDIA GPU + CUDA) |
+            | File | Platform | Description |
+            |------|----------|-------------|
+            | `VoiceSnip-Windows.zip` | Windows | Deepgram Cloud + Whisper CPU |
+            | `VoiceSnip-Linux.tar.gz` | Linux | AppImage (Deepgram Cloud + Whisper CPU) |
 
-            ### Linux
-            | File | Description |
-            |------|-------------|
-            | `VoiceSnip-Linux.tar.gz` | CPU-only AppImage (Deepgram Cloud + Whisper CPU) |
-            | `VoiceSnip-Linux-CUDA.tar.xz` | GPU-accelerated AppImage (requires NVIDIA GPU + CUDA) |
+            > **Note:** These builds support CPU-based local transcription and cloud providers.
+            > GPU-accelerated (CUDA) builds are coming soon. For CUDA support now, use the Python installation method.
 
             ---
 
             ## Installation
 
             ### Windows
-            1. Download the appropriate ZIP for your system
+            1. Download `VoiceSnip-Windows.zip`
             2. Extract to a folder of your choice
             3. Edit `voicesnip.ini` and add your API keys (optional, only for Deepgram)
             4. Run `VoiceSnip.exe`
@@ -336,24 +331,24 @@ jobs:
             > **Note:** Windows may show an "Unknown publisher" warning. Click "More info" → "Run anyway".
 
             ### Linux
-            1. Download the appropriate archive for your system
-            2. Extract: `tar -xf VoiceSnip-Linux*.tar.*` (works for both .tar.gz and .tar.xz)
+            1. Download `VoiceSnip-Linux.tar.gz`
+            2. Extract: `tar -xzf VoiceSnip-Linux.tar.gz`
             3. Edit `voicesnip.ini` and add your API keys (optional, only for Deepgram)
             4. Make executable: `chmod +x *.AppImage`
-            5. Run: `./VoiceSnip-Linux*.AppImage`
+            5. Run: `./VoiceSnip-Linux.AppImage`
 
             ---
 
-            ## Which version should I choose?
+            ## CUDA Support
 
-            **CPU versions** (`VoiceSnip-Windows.zip` / `VoiceSnip-Linux.tar.gz`):
-            - Works on any PC
-            - Uses CPU for local Whisper transcription
-            - Smaller download size
+            GPU-accelerated transcription with CUDA is fully supported via Python installation:
 
-            **CUDA versions** (`VoiceSnip-Windows-CUDA.zip` / `VoiceSnip-Linux-CUDA.tar.xz`):
-            - Requires NVIDIA GPU with CUDA installed
-            - Much faster local transcription
-            - Larger download size
+            ```bash
+            git clone https://github.com/Stefan-Schmidbauer/voicesnip.git
+            cd voicesnip
+            python quickstrap/quickstrap.py  # Select CUDA profile
+            ```
+
+            Standalone CUDA builds (.exe/.AppImage) are coming in a future release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

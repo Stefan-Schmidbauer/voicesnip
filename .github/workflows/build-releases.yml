@@ -20,11 +20,12 @@ jobs:
             requirements: quickstrap/requirements_python_basis_windows.txt
             features: whisper,deepgram,faster-whisper-server
             pyinstaller_extras: ""
-          - profile: cuda
-            name: VoiceSnip-Windows-CUDA
-            requirements: quickstrap/requirements_python_cuda_windows.txt
-            features: whisper,deepgram,cuda,faster-whisper-server
-            pyinstaller_extras: "--collect-all nvidia.cudnn --collect-all nvidia.cublas --collect-all nvidia_cublas_cu12 --collect-all nvidia_cudnn_cu12 --collect-all ctranslate2 --collect-binaries nvidia.cudnn --collect-binaries nvidia.cublas --collect-binaries nvidia_cublas_cu12 --collect-binaries nvidia_cudnn_cu12 --collect-binaries ctranslate2"
+          # CUDA builds disabled - will use system-CUDA approach in future release
+          # - profile: cuda
+          #   name: VoiceSnip-Windows-CUDA
+          #   requirements: quickstrap/requirements_python_cuda_windows.txt
+          #   features: whisper,deepgram,cuda,faster-whisper-server
+          #   pyinstaller_extras: "--collect-all nvidia.cudnn ..."
 
     steps:
       - name: Checkout repository
@@ -116,11 +117,12 @@ jobs:
             requirements: quickstrap/requirements_python_basis.txt
             features: whisper,deepgram,faster-whisper-server
             pyinstaller_extras: ""
-          - profile: cuda
-            name: VoiceSnip-Linux-CUDA
-            requirements: quickstrap/requirements_python_cuda.txt
-            features: whisper,deepgram,cuda,faster-whisper-server
-            pyinstaller_extras: "--collect-all nvidia.cudnn --collect-all nvidia.cublas --collect-all nvidia_cublas_cu12 --collect-all nvidia_cudnn_cu12 --collect-all ctranslate2 --collect-binaries nvidia.cudnn --collect-binaries nvidia.cublas --collect-binaries nvidia_cublas_cu12 --collect-binaries nvidia_cudnn_cu12 --collect-binaries ctranslate2"
+          # CUDA builds disabled - will use system-CUDA approach in future release
+          # - profile: cuda
+          #   name: VoiceSnip-Linux-CUDA
+          #   requirements: quickstrap/requirements_python_cuda.txt
+          #   features: whisper,deepgram,cuda,faster-whisper-server
+          #   pyinstaller_extras: "--collect-all nvidia.cudnn ..."
 
     steps:
       - name: Checkout repository

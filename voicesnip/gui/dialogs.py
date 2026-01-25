@@ -10,6 +10,7 @@ import sys
 import subprocess
 import customtkinter as ctk
 import webbrowser
+from tkinter import messagebox
 from PIL import Image
 
 from ..constants import GITHUB_URL
@@ -192,78 +193,13 @@ def show_model_download_info(parent, model):
     """Show info dialog about model download
 
     Args:
-        parent: Parent window
+        parent: Parent window (unused, kept for API compatibility)
         model: Model name to display
     """
-    # Calculate dimensions first
-    base_width = 500
-    base_height = 320
-    try:
-        scaled_width = int(base_width * max(1.0, parent.winfo_fpixels('1i') / 96.0))
-        scaled_height = int(base_height * max(1.0, parent.winfo_fpixels('1i') / 96.0))
-    except Exception:
-        scaled_width = base_width
-        scaled_height = base_height
-
-    # Calculate center position
-    parent_x = parent.winfo_x()
-    parent_y = parent.winfo_y()
-    parent_width = parent.winfo_width()
-    parent_height = parent.winfo_height()
-    x = parent_x + (parent_width - scaled_width) // 2
-    y = parent_y + (parent_height - scaled_height) // 2
-
-    # Create info dialog window
-    info_window = ctk.CTkToplevel(parent)
-    info_window.title("Model Download Required")
-    info_window.geometry(f"{scaled_width}x{scaled_height}+{x}+{y}")
-    info_window.resizable(False, False)
-    info_window.transient(parent)
-
-    def create_content():
-        """Create dialog content after window is ready"""
-        info_window.grab_set()
-
-        # Main frame with padding
-        main_frame = ctk.CTkFrame(info_window, fg_color="transparent")
-        main_frame.pack(fill="both", expand=True, padx=25, pady=25)
-
-        # Title
-        ctk.CTkLabel(
-            main_frame,
-            text="Model Download Required",
-            font=ctk.CTkFont(size=18, weight="bold")
-        ).pack(pady=(0, 15))
-
-        # Info text
-        info_text = (
-            f"The Whisper model '{model}' needs to be downloaded on first use.\n\n"
-            "This will happen automatically when you press the hotkey for the first time.\n\n"
-            "Larger models can take a long time to download. Please be patient.\n\n"
-            "You will see 'Processing...' while the model is being downloaded and loaded."
-        )
-
-        ctk.CTkLabel(
-            main_frame,
-            text=info_text,
-            font=ctk.CTkFont(size=14),
-            justify="left",
-            wraplength=scaled_width - 60
-        ).pack(pady=(0, 20))
-
-        # OK button
-        ok_button = ctk.CTkButton(
-            main_frame,
-            text="OK",
-            command=info_window.destroy,
-            width=140,
-            font=ctk.CTkFont(size=14)
-        )
-        ok_button.pack()
-        ok_button.focus()
-
-        info_window.lift()
-        info_window.focus_force()
-
-    # Delay content creation to ensure window is ready
-    info_window.after(100, create_content)
+    info_text = (
+        f"The Whisper model '{model}' needs to be downloaded on first use.\n\n"
+        "This will happen automatically when you press the hotkey for the first time.\n\n"
+        "Larger models can take a long time to download. Please be patient.\n\n"
+        "You will see 'Processing...' while the model is being downloaded and loaded."
+    )
+    messagebox.showinfo("Model Download Required", info_text)

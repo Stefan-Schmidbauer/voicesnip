@@ -43,8 +43,14 @@ def load_config_file():
     """
     # Get the directory where the executable/script is located
     if getattr(sys, 'frozen', False):
-        # Running as PyInstaller bundle
-        base_dir = os.path.dirname(sys.executable)
+        # Check if running as AppImage (Linux)
+        appimage_path = os.environ.get('APPIMAGE')
+        if appimage_path:
+            # AppImage: use directory containing the .AppImage file
+            base_dir = os.path.dirname(appimage_path)
+        else:
+            # Regular PyInstaller: use directory of the executable
+            base_dir = os.path.dirname(sys.executable)
     else:
         # Running as script
         base_dir = os.path.dirname(os.path.abspath(__file__))

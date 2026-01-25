@@ -57,7 +57,7 @@ def show_about_dialog(parent):
     """
     # Calculate dimensions first
     base_width = 420
-    base_height = 520
+    base_height = 580
     try:
         scaled_width = int(base_width * max(1.0, parent.winfo_fpixels('1i') / 96.0))
         scaled_height = int(base_height * max(1.0, parent.winfo_fpixels('1i') / 96.0))

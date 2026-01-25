@@ -70,7 +70,7 @@ class VoiceSnipGUI:
 
         # Set window size from config or default
         width = self.config.get('window_width', 700)
-        height = self.config.get('window_height', 520)
+        height = self.config.get('window_height', 580)
         self.root.geometry(f"{width}x{height}")
         self.root.resizable(True, True)
 

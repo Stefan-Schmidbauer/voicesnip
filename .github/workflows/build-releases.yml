@@ -51,9 +51,24 @@ jobs:
           Get-ChildItem -Path "$env:pythonLocation\Lib\site-packages\nvidia" -Recurse -Filter "*.dll" | Select-Object FullName
         continue-on-error: true
 
+      - name: Collect CUDA DLLs
+        run: |
+          if ("${{ matrix.profile }}" -eq "cuda") {
+            $nvidiaBin = "$env:pythonLocation\Lib\site-packages\nvidia"
+            $dllArgs = ""
+            Get-ChildItem -Path $nvidiaBin -Recurse -Filter "*.dll" | ForEach-Object {
+              $dllArgs += "--add-binary `"$($_.FullName);.`" "
+            }
+            echo "CUDA_DLL_ARGS=$dllArgs" >> $env:GITHUB_ENV
+          } else {
+            echo "CUDA_DLL_ARGS=" >> $env:GITHUB_ENV
+          }
+        shell: pwsh
+
       - name: Build EXE with PyInstaller
         run: |
-          pyinstaller --onefile --name VoiceSnip --icon=assets/icons/app/voicesnip.ico --add-data "assets;assets" --hidden-import pynput.keyboard._win32 --hidden-import pynput.mouse._win32 ${{ matrix.pyinstaller_extras }} main.py
+          pyinstaller --onefile --name VoiceSnip --icon=assets/icons/app/voicesnip.ico --add-data "assets;assets" --hidden-import pynput.keyboard._win32 --hidden-import pynput.mouse._win32 ${{ matrix.pyinstaller_extras }} $env:CUDA_DLL_ARGS main.py
+        shell: pwsh
 
       - name: Generate profile config
         run: |

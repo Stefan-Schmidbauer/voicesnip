@@ -278,6 +278,8 @@ jobs:
             3. Edit `voicesnip.ini` and add your API keys (optional, only for Deepgram)
             4. Run `VoiceSnip.exe`
 
+            > **Note:** Windows may show a SmartScreen warning. Click "More info" → "Run anyway".
+
             ### Linux
             1. Download the appropriate tar.gz for your system
             2. Extract: `tar -xzf VoiceSnip-Linux*.tar.gz`

@@ -244,7 +244,7 @@ class VoiceSnipGUI:
             width=100,
             font=button_font,
             text_color=("gray10", "gray90"),
-            text_color_disabled=("gray70", "gray40")
+            text_color_disabled=("gray70", "gray60")
         )
         self.record_hotkey_button.pack(side="right")
 
@@ -343,7 +343,7 @@ class VoiceSnipGUI:
             width=160,
             font=button_font,
             text_color=("gray10", "gray90"),
-            text_color_disabled=("gray70", "gray40")
+            text_color_disabled=("gray70", "gray60")
         )
         self.copy_button.pack(side="left", padx=(0, 10))
 
@@ -368,7 +368,7 @@ class VoiceSnipGUI:
             fg_color=("#3a7ebf", "#1f538d"),
             hover_color=("#325882", "#14375e"),
             text_color=("gray10", "gray90"),
-            text_color_disabled=("gray70", "gray40")
+            text_color_disabled=("gray70", "gray60")
         )
         self.gui_record_button.pack(side="right")
 
@@ -385,7 +385,7 @@ class VoiceSnipGUI:
             fg_color=("#2d8f2d", "#1e6b1e"),
             hover_color=("#247024", "#155215"),
             text_color=("gray10", "gray90"),
-            text_color_disabled=("gray70", "gray40")
+            text_color_disabled=("gray70", "gray60")
         )
         self.start_button.pack(side="left", padx=5)
 
@@ -399,7 +399,7 @@ class VoiceSnipGUI:
             fg_color=("#c44040", "#8b2d2d"),
             hover_color=("#9e3333", "#6b2323"),
             text_color=("gray10", "gray90"),
-            text_color_disabled=("gray70", "gray40")
+            text_color_disabled=("gray70", "gray60")
         )
         self.stop_button.pack(side="left", padx=5)
 

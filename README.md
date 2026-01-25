@@ -49,10 +49,7 @@ chmod +x VoiceSnip-Linux*.AppImage
 
 ### 2. Configure (Optional)
 
-For **Deepgram Cloud** or **Faster Whisper Server**, edit the config file:
-
-- **Windows:** `voicesnip.ini`
-- **Linux:** `.env`
+For **Deepgram Cloud** or **Faster Whisper Server**, edit `voicesnip.ini`:
 
 ```ini
 DEEPGRAM_API_KEY=your_api_key_here
@@ -164,7 +161,7 @@ Models download automatically on first use.
 
 | File | Location | Purpose |
 |------|----------|---------|
-| `.env` / `voicesnip.ini` | Installation dir | API keys |
+| `voicesnip.ini` | Installation dir | API keys |
 | `voicesnip_config.json` | Installation dir | GUI settings |
 | `voicesnip_profile.ini` | Installation dir | Installation profile |
 | Whisper models | `~/.cache/huggingface/` | Downloaded models |

@@ -133,6 +133,29 @@ if (Test-Path $SpecFile) {
         }
     }
 
+    # Check for CUDA packages and add collect flags
+    $CudaArgs = @()
+    $HasCuda = $false
+
+    # Check if nvidia CUDA packages are installed
+    $CudaPackages = @('nvidia.cudnn', 'nvidia.cublas', 'ctranslate2')
+    foreach ($pkg in $CudaPackages) {
+        $CheckResult = python -c "import $pkg" 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "[OK] Found CUDA package: $pkg (will be collected)" -ForegroundColor Green
+            $CudaArgs += "--collect-all"
+            $CudaArgs += $pkg
+            $CudaArgs += "--collect-binaries"
+            $CudaArgs += $pkg
+            $HasCuda = $true
+        }
+    }
+
+    if ($HasCuda) {
+        Write-Host ""
+        Write-Host "[i] CUDA support detected - including CUDA DLLs in build" -ForegroundColor Cyan
+    }
+
     Write-Host ""
     Write-Host "Building EXE..."
 
@@ -147,6 +170,7 @@ if (Test-Path $SpecFile) {
     }
 
     $PyInstallerArgs += $AddDataArgs
+    $PyInstallerArgs += $CudaArgs
     $PyInstallerArgs += $MainScript
 
     pyinstaller @PyInstallerArgs

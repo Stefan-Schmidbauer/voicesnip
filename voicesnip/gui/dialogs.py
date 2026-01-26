@@ -91,9 +91,6 @@ def show_about_dialog(parent):
         # Logo
         try:
             png_path = get_resource_path(os.path.join("assets", "icons", "app", "voicesnip_icon.png"))
-            print(f"DEBUG: Looking for logo at: {png_path}")
-            print(f"DEBUG: File exists: {os.path.exists(png_path)}")
-            print(f"DEBUG: _MEIPASS: {getattr(sys, '_MEIPASS', 'not set')}")
             if os.path.exists(png_path):
                 logo_image = ctk.CTkImage(
                     light_image=Image.open(png_path),
@@ -103,8 +100,8 @@ def show_about_dialog(parent):
                 logo_label = ctk.CTkLabel(main_frame, image=logo_image, text="")
                 logo_label.image = logo_image  # Keep reference to prevent garbage collection
                 logo_label.pack(pady=(0, 15))
-        except Exception as e:
-            print(f"DEBUG: Error loading logo: {e}")
+        except Exception:
+            pass  # Logo is optional
 
         # App title
         ctk.CTkLabel(

@@ -294,7 +294,7 @@ class VoiceSnipGUI:
 
         self.record_hotkey_button = ctk.CTkButton(
             hotkey_frame,
-            text="Record",
+            text="Set",
             command=self.start_hotkey_recording,
             width=100,
             font=button_font,
@@ -630,7 +630,7 @@ class VoiceSnipGUI:
 
         self.hotkey_recording = True
         self.recorded_keys = set()
-        self.record_hotkey_button.configure(text="Recording...", state="disabled")
+        self.record_hotkey_button.configure(text="Setting...", state="disabled")
         self.hotkey_entry.configure(state="disabled")
 
         self.hotkey_listener = keyboard.Listener(
@@ -664,7 +664,7 @@ class VoiceSnipGUI:
             self.hotkey_listener.stop()
             self.hotkey_listener = None
 
-        self.record_hotkey_button.configure(text="Record", state="normal")
+        self.record_hotkey_button.configure(text="Set", state="normal")
         self.hotkey_entry.configure(state="normal")
         self.recorded_keys = set()
 

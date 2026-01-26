@@ -139,6 +139,50 @@ Quick install: `./install.py --profile cuda`
 start.bat              # Windows
 ```
 
+### Using Binaries with CUDA
+
+The pre-built binaries (AppImage/EXE) don't include CUDA libraries. To use GPU acceleration, you need to provide them separately.
+
+#### Linux
+
+Point the binary to your venv's CUDA libraries:
+
+```bash
+export LD_LIBRARY_PATH="/path/to/venv/lib/python3.12/site-packages/nvidia/cudnn/lib:/path/to/venv/lib/python3.12/site-packages/nvidia/cublas/lib:$LD_LIBRARY_PATH"
+
+./VoiceSnip-Linux.AppImage
+```
+
+#### Windows: CUDA/cuDNN Setup
+
+Whisper requires CUDA 12.x libraries for GPU acceleration. These are **not** included with the NVIDIA driver.
+
+**Recommended: Let PyTorch handle CUDA** (simplest, no separate installation):
+
+```cmd
+pip uninstall torch
+pip install torch --index-url https://download.pytorch.org/whl/cu124
+```
+
+**Alternative: Manual CUDA Installation**
+
+1. Install [CUDA Toolkit 12.x](https://developer.nvidia.com/cuda-downloads) (not 13.x – most ML frameworks don't support it yet)
+2. Download [cuDNN for CUDA 12](https://developer.nvidia.com/cudnn-downloads) – installer or ZIP version both work
+3. If using ZIP: Extract and copy contents of `bin/`, `include/`, `lib/` to your CUDA installation directory
+4. Restart your terminal
+
+Verify installation:
+```cmd
+where cudnn64_*.dll
+nvcc --version
+```
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `cudnn64_*.dll not found` | cuDNN not installed or not in PATH | Use PyTorch method, or install cuDNN manually |
+| `cublas64_12.dll not found` | Wrong CUDA version (e.g., 13.x) | Install CUDA 12.x or use PyTorch method |
+| DLLs present but not found | Terminal opened before install | Restart terminal/IDE |
+
 ## Provider Comparison
 
 | Provider | Cost | Requirements | Privacy | Best for |

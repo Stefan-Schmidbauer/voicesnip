@@ -162,7 +162,24 @@ def format_hotkey(keys):
             else:
                 key_names.append(name)
         elif hasattr(key, 'char') and key.char:
-            key_names.append(key.char.lower())
+            # Check if char is printable (not a control character)
+            if key.char.isprintable():
+                key_names.append(key.char.lower())
+            elif hasattr(key, 'vk') and key.vk:
+                # On Windows with modifiers, use virtual key code to get the letter
+                # vk codes 65-90 are A-Z
+                if 65 <= key.vk <= 90:
+                    key_names.append(chr(key.vk).lower())
+                else:
+                    key_names.append(f'key{key.vk}')
+        elif hasattr(key, 'vk') and key.vk:
+            # Fallback: use virtual key code
+            if 65 <= key.vk <= 90:
+                key_names.append(chr(key.vk).lower())
+            elif 48 <= key.vk <= 57:
+                key_names.append(chr(key.vk))  # 0-9
+            else:
+                key_names.append(f'key{key.vk}')
 
     # Sort modifiers consistently
     modifier_order = ['ctrl', 'alt', 'shift', 'cmd']

@@ -161,13 +161,6 @@ class VoiceSnipGUI:
         self.root.geometry(f"{width}x{height}")
         self.root.resizable(True, True)
 
-        # Bind window resize event to save size (delayed to avoid saving during startup)
-        self._resize_after_id = None
-        self._allow_size_save = False
-        self.root.bind('<Configure>', self._on_window_configure)
-        # Allow size saving after window is fully initialized (2 seconds delay)
-        self.root.after(2000, self._enable_size_save)
-
         # Create UI
         self.create_widgets()
 
@@ -177,37 +170,11 @@ class VoiceSnipGUI:
         # Load saved settings
         self.load_settings()
 
-    def _enable_size_save(self):
-        """Enable saving window size after startup is complete"""
-        self._allow_size_save = True
-
-    def _on_window_configure(self, event):
-        """Handle window resize/move events"""
-        if event.widget != self.root:
-            return
-
-        # Don't save during startup to avoid cumulative growth
-        if not self._allow_size_save:
-            return
-
-        # Debounce: only save after user stops resizing for 500ms
-        if self._resize_after_id:
-            self.root.after_cancel(self._resize_after_id)
-
-        self._resize_after_id = self.root.after(500, self._save_window_size)
-
     def _save_window_size(self):
-        """Save current window size to config"""
+        """Save current window size to config (called on close)"""
         try:
             width = self.root.winfo_width()
             height = self.root.winfo_height()
-
-            # Compensate for UI scaling to avoid cumulative growth
-            # winfo_width/height returns scaled size, but geometry() expects unscaled
-            scaling = self.config.get('ui_scaling', 1.0)
-            if scaling != 1.0:
-                width = int(width / scaling)
-                height = int(height / scaling)
 
             if width > 100 and height > 100:
                 self.config['window_width'] = width
@@ -971,6 +938,7 @@ class VoiceSnipGUI:
         """Handle window close event"""
         if self.is_active:
             self.stop()
+        self._save_window_size()
         self.root.destroy()
 
     def show_about(self):

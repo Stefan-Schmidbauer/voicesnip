@@ -98,9 +98,10 @@ def show_about_dialog(parent):
                     size=(80, 80)
                 )
                 logo_label = ctk.CTkLabel(main_frame, image=logo_image, text="")
+                logo_label.image = logo_image  # Keep reference to prevent garbage collection
                 logo_label.pack(pady=(0, 15))
         except Exception:
-            pass
+            pass  # Logo is optional
 
         # App title
         ctk.CTkLabel(

@@ -771,9 +771,7 @@ class VoiceSnipGUI:
                         missing.append("cuBLAS (cublas64_*.dll)")
                     install_hint = (
                         "To enable GPU acceleration:\n"
-                        "1. Install NVIDIA CUDA Toolkit + cuDNN\n"
-                        "2. Ensure CUDA bin directory is in PATH\n"
-                        "   (e.g., C:\\Program Files\\NVIDIA\\CUDNN\\v9.x\\bin)"
+                        "Install CUDA Toolkit 12 + cuDNN from nvidia.com"
                     )
                 else:
                     if not cudnn_found:

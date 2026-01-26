@@ -155,10 +155,8 @@ class VoiceSnipGUI:
             scaling = self.config['ui_scaling']
             ctk.set_widget_scaling(scaling)
 
-        # Set window size from config or default
-        width = self.config.get('window_width', 700)
-        height = self.config.get('window_height', 580)
-        self.root.geometry(f"{width}x{height}")
+        # Set default window size (ui_scaling affects widget sizes, not window geometry)
+        self.root.geometry("700x580")
         self.root.resizable(True, True)
 
         # Create UI
@@ -169,26 +167,6 @@ class VoiceSnipGUI:
 
         # Load saved settings
         self.load_settings()
-
-    def _save_window_size(self):
-        """Save current window size to config (called on close)"""
-        try:
-            width = self.root.winfo_width()
-            height = self.root.winfo_height()
-
-            # Compensate for UI scaling - winfo returns scaled pixels,
-            # but geometry() expects unscaled values
-            scaling = self.config.get('ui_scaling', 1.0)
-            if scaling != 1.0:
-                width = int(width / scaling)
-                height = int(height / scaling)
-
-            if width > 100 and height > 100:
-                self.config['window_width'] = width
-                self.config['window_height'] = height
-                save_config(self.config)
-        except Exception:
-            pass
 
     def toggle_theme(self):
         """Toggle between light and dark mode"""
@@ -945,7 +923,6 @@ class VoiceSnipGUI:
         """Handle window close event"""
         if self.is_active:
             self.stop()
-        self._save_window_size()
         self.root.destroy()
 
     def show_about(self):

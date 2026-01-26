@@ -7,6 +7,8 @@ and control buttons. Uses CustomTkinter for a modern look.
 
 import os
 import sys
+import glob
+import platform
 import customtkinter as ctk
 from tkinter import messagebox
 from pathlib import Path
@@ -42,6 +44,91 @@ def get_resource_path(relative_path: str) -> str:
     return os.path.join(base_path, relative_path)
 
 
+def find_cuda_dlls():
+    """
+    Check if required CUDA libraries are available.
+    Windows: Search for DLLs in PATH and standard NVIDIA installation paths
+    Linux: Search for .so files in LD_LIBRARY_PATH and standard locations
+
+    Returns:
+        tuple: (cudnn_found, cublas_found, details_dict)
+    """
+    cudnn_found = False
+    cublas_found = False
+    cudnn_path = None
+    cublas_path = None
+
+    if platform.system() == 'Windows':
+        # Windows: Search in PATH and standard NVIDIA installation directories
+        search_dirs = os.environ.get('PATH', '').split(os.pathsep)
+
+        # Add standard NVIDIA CUDA Toolkit paths (prefer CUDA 12.x)
+        cuda_base = r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA'
+        if os.path.isdir(cuda_base):
+            # Find all CUDA versions, prefer 12.x
+            cuda_versions = sorted(glob.glob(os.path.join(cuda_base, 'v12.*')), reverse=True)
+            cuda_versions += sorted(glob.glob(os.path.join(cuda_base, 'v*')), reverse=True)
+            for cuda_dir in cuda_versions:
+                bin_dir = os.path.join(cuda_dir, 'bin')
+                if os.path.isdir(bin_dir) and bin_dir not in search_dirs:
+                    search_dirs.append(bin_dir)
+                # Also check bin/x64 subdirectory
+                bin_x64_dir = os.path.join(cuda_dir, 'bin', 'x64')
+                if os.path.isdir(bin_x64_dir) and bin_x64_dir not in search_dirs:
+                    search_dirs.append(bin_x64_dir)
+
+        # Add standard NVIDIA cuDNN paths (prefer 12.x)
+        cudnn_base = r'C:\Program Files\NVIDIA\CUDNN'
+        if os.path.isdir(cudnn_base):
+            # Find all cuDNN versions
+            for cudnn_version_dir in glob.glob(os.path.join(cudnn_base, 'v*')):
+                # Check for CUDA 12.x subdirectories first
+                cuda12_dirs = sorted(glob.glob(os.path.join(cudnn_version_dir, 'bin', '12.*', 'x64')), reverse=True)
+                for bin_dir in cuda12_dirs:
+                    if os.path.isdir(bin_dir) and bin_dir not in search_dirs:
+                        search_dirs.append(bin_dir)
+                # Also check other CUDA versions
+                other_dirs = sorted(glob.glob(os.path.join(cudnn_version_dir, 'bin', '*', 'x64')), reverse=True)
+                for bin_dir in other_dirs:
+                    if os.path.isdir(bin_dir) and bin_dir not in search_dirs:
+                        search_dirs.append(bin_dir)
+
+        cudnn_pattern = 'cudnn64_*.dll'
+        cublas_pattern = 'cublas64_*.dll'
+    else:
+        # Linux: Search in LD_LIBRARY_PATH and standard locations
+        search_dirs = os.environ.get('LD_LIBRARY_PATH', '').split(os.pathsep)
+        search_dirs.extend([
+            '/usr/lib/x86_64-linux-gnu',
+            '/usr/local/cuda/lib64',
+            '/usr/lib64',
+            '/usr/local/lib',
+        ])
+        cudnn_pattern = 'libcudnn.so*'
+        cublas_pattern = 'libcublas.so*'
+
+    for search_dir in search_dirs:
+        if not search_dir or not os.path.isdir(search_dir):
+            continue
+
+        if not cudnn_found:
+            matches = glob.glob(os.path.join(search_dir, cudnn_pattern))
+            if matches:
+                cudnn_found = True
+                cudnn_path = matches[0]
+
+        if not cublas_found:
+            matches = glob.glob(os.path.join(search_dir, cublas_pattern))
+            if matches:
+                cublas_found = True
+                cublas_path = matches[0]
+
+        if cudnn_found and cublas_found:
+            break
+
+    return cudnn_found, cublas_found, {'cudnn': cudnn_path, 'cublas': cublas_path}
+
+
 class VoiceSnipGUI:
     """CustomTkinter GUI for VoiceSnip"""
 
@@ -63,20 +150,17 @@ class VoiceSnipGUI:
         # Load config
         self.config = load_config()
 
-        # Apply UI scaling (only widget scaling, not window scaling to avoid cumulative effect)
-        if 'ui_scaling' in self.config:
-            scaling = self.config['ui_scaling']
+        # Apply UI scaling and adjust window size accordingly
+        scaling = self.config.get('ui_scaling', 1.0)
+        if scaling != 1.0:
             ctk.set_widget_scaling(scaling)
 
-        # Set window size from config or default
-        width = self.config.get('window_width', 700)
-        height = self.config.get('window_height', 580)
+        # Set window size based on scaling (base: 700x580)
+        base_width, base_height = 700, 580
+        width = int(base_width * scaling)
+        height = int(base_height * scaling)
         self.root.geometry(f"{width}x{height}")
         self.root.resizable(True, True)
-
-        # Bind window resize event to save size
-        self.root.bind('<Configure>', self._on_window_configure)
-        self._resize_after_id = None
 
         # Create UI
         self.create_widgets()
@@ -86,30 +170,6 @@ class VoiceSnipGUI:
 
         # Load saved settings
         self.load_settings()
-
-    def _on_window_configure(self, event):
-        """Handle window resize/move events"""
-        if event.widget != self.root:
-            return
-
-        # Debounce: only save after user stops resizing for 500ms
-        if self._resize_after_id:
-            self.root.after_cancel(self._resize_after_id)
-
-        self._resize_after_id = self.root.after(500, self._save_window_size)
-
-    def _save_window_size(self):
-        """Save current window size to config"""
-        try:
-            width = self.root.winfo_width()
-            height = self.root.winfo_height()
-
-            if width > 100 and height > 100:
-                self.config['window_width'] = width
-                self.config['window_height'] = height
-                save_config(self.config)
-        except Exception:
-            pass
 
     def toggle_theme(self):
         """Toggle between light and dark mode"""
@@ -239,7 +299,7 @@ class VoiceSnipGUI:
 
         self.record_hotkey_button = ctk.CTkButton(
             hotkey_frame,
-            text="Record",
+            text="Set",
             command=self.start_hotkey_recording,
             width=100,
             font=button_font,
@@ -575,7 +635,7 @@ class VoiceSnipGUI:
 
         self.hotkey_recording = True
         self.recorded_keys = set()
-        self.record_hotkey_button.configure(text="Recording...", state="disabled")
+        self.record_hotkey_button.configure(text="Setting...", state="disabled")
         self.hotkey_entry.configure(state="disabled")
 
         self.hotkey_listener = keyboard.Listener(
@@ -609,7 +669,7 @@ class VoiceSnipGUI:
             self.hotkey_listener.stop()
             self.hotkey_listener = None
 
-        self.record_hotkey_button.configure(text="Record", state="normal")
+        self.record_hotkey_button.configure(text="Set", state="normal")
         self.hotkey_entry.configure(state="normal")
         self.recorded_keys = set()
 
@@ -700,6 +760,42 @@ class VoiceSnipGUI:
         self.config['hotkey'] = hotkey
         self.config['auto_clipboard'] = self.auto_clipboard_var.get()
         save_config(self.config)
+
+        # CUDA validation for GPU provider
+        if provider_name == 'whisper-local-gpu':
+            cudnn_found, cublas_found, dll_details = find_cuda_dlls()
+
+            if not cudnn_found or not cublas_found:
+                missing = []
+                if platform.system() == 'Windows':
+                    if not cudnn_found:
+                        missing.append("cuDNN (cudnn64_*.dll)")
+                    if not cublas_found:
+                        missing.append("cuBLAS (cublas64_*.dll)")
+                    install_hint = (
+                        "To enable GPU acceleration:\n"
+                        "Install CUDA Toolkit 12 + cuDNN from nvidia.com"
+                    )
+                else:
+                    if not cudnn_found:
+                        missing.append("cuDNN (libcudnn.so)")
+                    if not cublas_found:
+                        missing.append("cuBLAS (libcublas.so)")
+                    install_hint = (
+                        "To enable GPU acceleration:\n"
+                        "1. Install CUDA libraries via pip in a venv:\n"
+                        "   pip install nvidia-cudnn-cu12 nvidia-cublas-cu12\n"
+                        "2. Or install CUDA Toolkit system-wide"
+                    )
+
+                messagebox.showerror(
+                    "CUDA Libraries Not Found",
+                    "Missing CUDA libraries:\n"
+                    + "\n".join(f"• {m}" for m in missing) + "\n\n"
+                    + install_hint + "\n\n"
+                    "Alternative: Select 'Whisper Local CPU' instead."
+                )
+                return
 
         # Initialize core
         try:

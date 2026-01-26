@@ -24,9 +24,9 @@ Download the latest release for your platform:
 | **Windows** | [VoiceSnip-Windows.zip](https://github.com/Stefan-Schmidbauer/voicesnip/releases/latest) |
 | **Linux** | [VoiceSnip-Linux.tar.gz](https://github.com/Stefan-Schmidbauer/voicesnip/releases/latest) |
 
-These builds include CPU-based local transcription (Whisper), Faster Whisper Server, and Deepgram Cloud support.
+These builds include local transcription (Whisper CPU/GPU), Faster Whisper Server, and Deepgram Cloud support.
 
-> **GPU/CUDA Support:** For GPU-accelerated transcription, use the [Python installation](#python-installation-for-cuda). Standalone CUDA builds are coming soon.
+> **GPU Acceleration:** Requires NVIDIA GPU with CUDA 12 + cuDNN installed. If unavailable, select "Whisper Local CPU".
 
 ## Quick Start
 
@@ -42,9 +42,9 @@ These builds include CPU-based local transcription (Whisper), Faster Whisper Ser
 
 **Linux:**
 ```bash
-tar -xzf VoiceSnip-Linux*.tar.gz
-chmod +x VoiceSnip-Linux*.AppImage
-./VoiceSnip-Linux*.AppImage
+tar -xzf VoiceSnip-Linux.tar.gz
+chmod +x VoiceSnip-Linux.AppImage
+./VoiceSnip-Linux.AppImage
 ```
 
 ### 2. Configure (Optional)
@@ -97,9 +97,7 @@ Wayland blocks global keyboard hooks for security reasons. VoiceSnip provides an
 
 # For Developers
 
-## Python Installation for CUDA
-
-For GPU-accelerated transcription or development, install from source:
+## Installation from Source
 
 ### Requirements
 
@@ -121,10 +119,8 @@ py install.py          # Windows
 
 | Profile | Description |
 |---------|-------------|
-| **basis** | Whisper CPU + Deepgram Cloud |
-| **cuda** | Whisper CPU/GPU + Deepgram Cloud |
-| **server** | Faster Whisper Server + Deepgram Cloud |
-| **full** | All providers |
+| **basis** | Whisper CPU + Deepgram + Faster-Whisper-Server |
+| **cuda** | Whisper CPU/GPU + Deepgram + Faster-Whisper-Server (requires NVIDIA GPU) |
 
 Quick install: `./install.py --profile cuda`
 
@@ -134,6 +130,12 @@ Quick install: `./install.py --profile cuda`
 ./start.sh             # Linux
 start.bat              # Windows
 ```
+
+### GPU Acceleration (CUDA)
+
+For GPU support, install [CUDA Toolkit 12](https://developer.nvidia.com/cuda-downloads) and [cuDNN](https://developer.nvidia.com/cudnn-downloads).
+
+VoiceSnip auto-detects standard NVIDIA installation paths. If installed elsewhere, add to PATH.
 
 ## Provider Comparison
 

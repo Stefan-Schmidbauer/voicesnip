@@ -18,7 +18,7 @@ jobs:
           - profile: basis
             name: VoiceSnip-Windows
             requirements: quickstrap/requirements_python_basis_windows.txt
-            features: whisper,deepgram,faster-whisper-server
+            features: whisper,deepgram,cuda,faster-whisper-server
             pyinstaller_extras: ""
           # CUDA builds disabled - will use system-CUDA approach in future release
           # - profile: cuda
@@ -68,7 +68,7 @@ jobs:
 
       - name: Build EXE with PyInstaller
         run: |
-          $cmd = "pyinstaller --onefile --name VoiceSnip --icon=assets/icons/app/voicesnip.ico --add-data `"assets;assets`" --hidden-import pynput.keyboard._win32 --hidden-import pynput.mouse._win32 ${{ matrix.pyinstaller_extras }} $env:CUDA_DLL_ARGS main.py"
+          $cmd = "pyinstaller --onefile --noconsole --name VoiceSnip --icon=assets/icons/app/voicesnip.ico --add-data `"assets;assets`" --hidden-import pynput.keyboard._win32 --hidden-import pynput.mouse._win32 --hidden-import PIL._tkinter_finder ${{ matrix.pyinstaller_extras }} $env:CUDA_DLL_ARGS main.py"
           Write-Host "Running: $cmd"
           Invoke-Expression $cmd
         shell: pwsh
@@ -115,7 +115,7 @@ jobs:
           - profile: basis
             name: VoiceSnip-Linux
             requirements: quickstrap/requirements_python_basis.txt
-            features: whisper,deepgram,faster-whisper-server
+            features: whisper,deepgram,cuda,faster-whisper-server
             pyinstaller_extras: ""
           # CUDA builds disabled - will use system-CUDA approach in future release
           # - profile: cuda
@@ -173,7 +173,7 @@ jobs:
 
       - name: Build binary with PyInstaller
         run: |
-          pyinstaller --onefile --name VoiceSnip --add-data "assets:assets" --hidden-import pynput.keyboard._xorg --hidden-import pynput.mouse._xorg ${{ matrix.pyinstaller_extras }} ${CUDA_SO_ARGS} main.py
+          pyinstaller --onefile --noconsole --name VoiceSnip --add-data "assets:assets" --hidden-import pynput.keyboard._xorg --hidden-import pynput.mouse._xorg --hidden-import PIL._tkinter_finder ${{ matrix.pyinstaller_extras }} ${CUDA_SO_ARGS} main.py
 
       - name: Download appimagetool
         run: |

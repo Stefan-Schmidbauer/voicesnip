@@ -47,7 +47,7 @@ def get_resource_path(relative_path: str) -> str:
 def find_cuda_dlls():
     """
     Check if required CUDA libraries are available.
-    Windows: Search for DLLs in PATH
+    Windows: Search for DLLs in PATH and standard NVIDIA installation paths
     Linux: Search for .so files in LD_LIBRARY_PATH and standard locations
 
     Returns:
@@ -59,8 +59,40 @@ def find_cuda_dlls():
     cublas_path = None
 
     if platform.system() == 'Windows':
-        # Windows: Search in PATH for DLLs
+        # Windows: Search in PATH and standard NVIDIA installation directories
         search_dirs = os.environ.get('PATH', '').split(os.pathsep)
+
+        # Add standard NVIDIA CUDA Toolkit paths (prefer CUDA 12.x)
+        cuda_base = r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA'
+        if os.path.isdir(cuda_base):
+            # Find all CUDA versions, prefer 12.x
+            cuda_versions = sorted(glob.glob(os.path.join(cuda_base, 'v12.*')), reverse=True)
+            cuda_versions += sorted(glob.glob(os.path.join(cuda_base, 'v*')), reverse=True)
+            for cuda_dir in cuda_versions:
+                bin_dir = os.path.join(cuda_dir, 'bin')
+                if os.path.isdir(bin_dir) and bin_dir not in search_dirs:
+                    search_dirs.append(bin_dir)
+                # Also check bin/x64 subdirectory
+                bin_x64_dir = os.path.join(cuda_dir, 'bin', 'x64')
+                if os.path.isdir(bin_x64_dir) and bin_x64_dir not in search_dirs:
+                    search_dirs.append(bin_x64_dir)
+
+        # Add standard NVIDIA cuDNN paths (prefer 12.x)
+        cudnn_base = r'C:\Program Files\NVIDIA\CUDNN'
+        if os.path.isdir(cudnn_base):
+            # Find all cuDNN versions
+            for cudnn_version_dir in glob.glob(os.path.join(cudnn_base, 'v*')):
+                # Check for CUDA 12.x subdirectories first
+                cuda12_dirs = sorted(glob.glob(os.path.join(cudnn_version_dir, 'bin', '12.*', 'x64')), reverse=True)
+                for bin_dir in cuda12_dirs:
+                    if os.path.isdir(bin_dir) and bin_dir not in search_dirs:
+                        search_dirs.append(bin_dir)
+                # Also check other CUDA versions
+                other_dirs = sorted(glob.glob(os.path.join(cudnn_version_dir, 'bin', '*', 'x64')), reverse=True)
+                for bin_dir in other_dirs:
+                    if os.path.isdir(bin_dir) and bin_dir not in search_dirs:
+                        search_dirs.append(bin_dir)
+
         cudnn_pattern = 'cudnn64_*.dll'
         cublas_pattern = 'cublas64_*.dll'
     else:
@@ -158,6 +190,13 @@ class VoiceSnipGUI:
         try:
             width = self.root.winfo_width()
             height = self.root.winfo_height()
+
+            # Compensate for UI scaling to avoid cumulative growth
+            # winfo_width/height returns scaled size, but geometry() expects unscaled
+            scaling = self.config.get('ui_scaling', 1.0)
+            if scaling != 1.0:
+                width = int(width / scaling)
+                height = int(height / scaling)
 
             if width > 100 and height > 100:
                 self.config['window_width'] = width

@@ -150,13 +150,16 @@ class VoiceSnipGUI:
         # Load config
         self.config = load_config()
 
-        # Apply UI scaling (only widget scaling, not window scaling to avoid cumulative effect)
-        if 'ui_scaling' in self.config:
-            scaling = self.config['ui_scaling']
+        # Apply UI scaling and adjust window size accordingly
+        scaling = self.config.get('ui_scaling', 1.0)
+        if scaling != 1.0:
             ctk.set_widget_scaling(scaling)
 
-        # Set default window size (ui_scaling affects widget sizes, not window geometry)
-        self.root.geometry("700x580")
+        # Set window size based on scaling (base: 700x580)
+        base_width, base_height = 700, 580
+        width = int(base_width * scaling)
+        height = int(base_height * scaling)
+        self.root.geometry(f"{width}x{height}")
         self.root.resizable(True, True)
 
         # Create UI

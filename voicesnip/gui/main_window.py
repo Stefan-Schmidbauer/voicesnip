@@ -161,9 +161,12 @@ class VoiceSnipGUI:
         self.root.geometry(f"{width}x{height}")
         self.root.resizable(True, True)
 
-        # Bind window resize event to save size
-        self.root.bind('<Configure>', self._on_window_configure)
+        # Bind window resize event to save size (delayed to avoid saving during startup)
         self._resize_after_id = None
+        self._allow_size_save = False
+        self.root.bind('<Configure>', self._on_window_configure)
+        # Allow size saving after window is fully initialized (2 seconds delay)
+        self.root.after(2000, self._enable_size_save)
 
         # Create UI
         self.create_widgets()
@@ -174,9 +177,17 @@ class VoiceSnipGUI:
         # Load saved settings
         self.load_settings()
 
+    def _enable_size_save(self):
+        """Enable saving window size after startup is complete"""
+        self._allow_size_save = True
+
     def _on_window_configure(self, event):
         """Handle window resize/move events"""
         if event.widget != self.root:
+            return
+
+        # Don't save during startup to avoid cumulative growth
+        if not self._allow_size_save:
             return
 
         # Debounce: only save after user stops resizing for 500ms

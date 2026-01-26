@@ -24,9 +24,13 @@ Download the latest release for your platform:
 | **Windows** | [VoiceSnip-Windows.zip](https://github.com/Stefan-Schmidbauer/voicesnip/releases/latest) |
 | **Linux** | [VoiceSnip-Linux.tar.gz](https://github.com/Stefan-Schmidbauer/voicesnip/releases/latest) |
 
-These builds include CPU-based local transcription (Whisper), Faster Whisper Server, and Deepgram Cloud support.
+These builds include local transcription (Whisper CPU/GPU), Faster Whisper Server, and Deepgram Cloud support.
 
-> **GPU/CUDA Support:** For GPU-accelerated transcription, use the [Python installation](#python-installation-for-cuda). Standalone CUDA builds are coming soon.
+> **GPU/CUDA (Windows & Linux):** The GPU option requires:
+> 1. NVIDIA GPU with drivers installed (`nvidia-smi` must work)
+> 2. CUDA libraries: `pip install nvidia-cudnn-cu12 nvidia-cublas-cu12`
+>
+> If CUDA is not available, select "Whisper Local CPU" instead.
 
 ## Quick Start
 

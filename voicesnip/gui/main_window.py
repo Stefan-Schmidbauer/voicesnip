@@ -701,6 +701,30 @@ class VoiceSnipGUI:
         self.config['auto_clipboard'] = self.auto_clipboard_var.get()
         save_config(self.config)
 
+        # CUDA validation for GPU provider
+        if provider_name == 'whisper-local-gpu':
+            try:
+                import torch
+                if not torch.cuda.is_available():
+                    messagebox.showerror(
+                        "CUDA Not Available",
+                        "CUDA is not available on this system.\n\n"
+                        "Requirements:\n"
+                        "• NVIDIA GPU with drivers (nvidia-smi must work)\n"
+                        "• CUDA libraries: pip install nvidia-cudnn-cu12 nvidia-cublas-cu12\n\n"
+                        "Alternative: Select 'Whisper Local CPU' instead."
+                    )
+                    return
+            except ImportError:
+                messagebox.showerror(
+                    "CUDA Not Available",
+                    "CUDA libraries not installed.\n\n"
+                    "To enable GPU:\n"
+                    "pip install nvidia-cudnn-cu12 nvidia-cublas-cu12\n\n"
+                    "Alternative: Select 'Whisper Local CPU' instead."
+                )
+                return
+
         # Initialize core
         try:
             self.update_status(f"Initializing {provider_name} provider...")

@@ -18,7 +18,7 @@ jobs:
           - profile: basis
             name: VoiceSnip-Windows
             requirements: quickstrap/requirements_python_basis_windows.txt
-            features: whisper,deepgram,faster-whisper-server
+            features: whisper,deepgram,cuda,faster-whisper-server
             pyinstaller_extras: ""
           # CUDA builds disabled - will use system-CUDA approach in future release
           # - profile: cuda
@@ -115,7 +115,7 @@ jobs:
           - profile: basis
             name: VoiceSnip-Linux
             requirements: quickstrap/requirements_python_basis.txt
-            features: whisper,deepgram,faster-whisper-server
+            features: whisper,deepgram,cuda,faster-whisper-server
             pyinstaller_extras: ""
           # CUDA builds disabled - will use system-CUDA approach in future release
           # - profile: cuda

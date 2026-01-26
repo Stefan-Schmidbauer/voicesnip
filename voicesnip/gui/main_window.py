@@ -176,6 +176,13 @@ class VoiceSnipGUI:
             width = self.root.winfo_width()
             height = self.root.winfo_height()
 
+            # Compensate for UI scaling - winfo returns scaled pixels,
+            # but geometry() expects unscaled values
+            scaling = self.config.get('ui_scaling', 1.0)
+            if scaling != 1.0:
+                width = int(width / scaling)
+                height = int(height / scaling)
+
             if width > 100 and height > 100:
                 self.config['window_width'] = width
                 self.config['window_height'] = height

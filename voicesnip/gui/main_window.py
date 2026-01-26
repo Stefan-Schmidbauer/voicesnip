@@ -7,6 +7,8 @@ and control buttons. Uses CustomTkinter for a modern look.
 
 import os
 import sys
+import glob
+import platform
 import customtkinter as ctk
 from tkinter import messagebox
 from pathlib import Path
@@ -40,6 +42,50 @@ def get_resource_path(relative_path: str) -> str:
         # Running in normal Python environment
         base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     return os.path.join(base_path, relative_path)
+
+
+def find_cuda_dlls():
+    """
+    Check if required CUDA DLLs are available in the system PATH (Windows only).
+    For Linux, returns True to rely on torch.cuda.is_available().
+
+    Returns:
+        tuple: (cudnn_found, cublas_found, details_dict)
+    """
+    if platform.system() != 'Windows':
+        # On Linux, we rely on torch.cuda.is_available()
+        return True, True, {'cudnn': None, 'cublas': None}
+
+    cudnn_found = False
+    cublas_found = False
+    cudnn_path = None
+    cublas_path = None
+
+    # Get all directories in PATH
+    path_dirs = os.environ.get('PATH', '').split(os.pathsep)
+
+    for path_dir in path_dirs:
+        if not os.path.isdir(path_dir):
+            continue
+
+        # Search for cuDNN DLL (cudnn64_*.dll)
+        if not cudnn_found:
+            cudnn_matches = glob.glob(os.path.join(path_dir, 'cudnn64_*.dll'))
+            if cudnn_matches:
+                cudnn_found = True
+                cudnn_path = cudnn_matches[0]
+
+        # Search for cuBLAS DLL (cublas64_*.dll)
+        if not cublas_found:
+            cublas_matches = glob.glob(os.path.join(path_dir, 'cublas64_*.dll'))
+            if cublas_matches:
+                cublas_found = True
+                cublas_path = cublas_matches[0]
+
+        if cudnn_found and cublas_found:
+            break
+
+    return cudnn_found, cublas_found, {'cudnn': cudnn_path, 'cublas': cublas_path}
 
 
 class VoiceSnipGUI:
@@ -701,26 +747,25 @@ class VoiceSnipGUI:
         self.config['auto_clipboard'] = self.auto_clipboard_var.get()
         save_config(self.config)
 
-        # CUDA validation for GPU provider
+        # CUDA validation for GPU provider (Windows only - check for DLLs in PATH)
         if provider_name == 'whisper-local-gpu':
-            try:
-                import torch
-                if not torch.cuda.is_available():
-                    messagebox.showerror(
-                        "CUDA Not Available",
-                        "CUDA is not available on this system.\n\n"
-                        "Requirements:\n"
-                        "• NVIDIA GPU with drivers (nvidia-smi must work)\n"
-                        "• CUDA libraries: pip install nvidia-cudnn-cu12 nvidia-cublas-cu12\n\n"
-                        "Alternative: Select 'Whisper Local CPU' instead."
-                    )
-                    return
-            except ImportError:
+            cudnn_found, cublas_found, dll_details = find_cuda_dlls()
+
+            if not cudnn_found or not cublas_found:
+                missing = []
+                if not cudnn_found:
+                    missing.append("cuDNN (cudnn64_*.dll)")
+                if not cublas_found:
+                    missing.append("cuBLAS (cublas64_*.dll)")
+
                 messagebox.showerror(
-                    "CUDA Not Available",
-                    "CUDA libraries not installed.\n\n"
-                    "To enable GPU:\n"
-                    "pip install nvidia-cudnn-cu12 nvidia-cublas-cu12\n\n"
+                    "CUDA Libraries Not Found",
+                    "Missing CUDA libraries in system PATH:\n"
+                    + "\n".join(f"• {m}" for m in missing) + "\n\n"
+                    "To enable GPU acceleration:\n"
+                    "1. Install NVIDIA CUDA Toolkit + cuDNN\n"
+                    "2. Ensure CUDA bin directory is in PATH\n"
+                    "   (e.g., C:\\Program Files\\NVIDIA\\CUDNN\\v9.x\\bin)\n\n"
                     "Alternative: Select 'Whisper Local CPU' instead."
                 )
                 return

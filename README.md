@@ -14,6 +14,7 @@ Push-to-Talk Speech-to-Text for Linux and Windows. Hold a hotkey, speak, release
 - **Multi-Language**: 10 languages (German, English, French, Spanish, etc.) + Auto-Detection
 - **Dark/Light Mode**: Switch between dark and light themes
 - **Adjustable Font Size**: A-/A+ buttons to customize text size
+- **Team/Server Mode**: Connect multiple clients to a central [Speaches](https://speaches.ai) server for team-wide speech-to-text
 
 ## Download
 
@@ -120,9 +121,7 @@ py install.py          # Windows
 | Profile | Description |
 |---------|-------------|
 | **basis** | Whisper CPU + Deepgram + Faster-Whisper-Server |
-| **cuda** | Whisper CPU/GPU + Deepgram + Faster-Whisper-Server (requires NVIDIA GPU) |
-
-Quick install: `./install.py --profile cuda`
+| **cuda** | Whisper CPU/GPU + Deepgram + Faster-Whisper-Server<br>(requires NVIDIA GPU) |
 
 ### Run
 
@@ -133,9 +132,9 @@ start.bat              # Windows
 
 ### GPU Acceleration (CUDA)
 
-For GPU support, install [CUDA Toolkit 12](https://developer.nvidia.com/cuda-downloads) and [cuDNN](https://developer.nvidia.com/cudnn-downloads).
+For pre-built downloads or manual installation, install [CUDA Toolkit 12](https://developer.nvidia.com/cuda-downloads) and [cuDNN](https://developer.nvidia.com/cudnn-downloads).
 
-VoiceSnip auto-detects standard NVIDIA installation paths. If installed elsewhere, add to PATH.
+When using `install.py --profile cuda`, CUDA libraries are installed automatically via pip. Only the NVIDIA driver is required.
 
 ## Provider Comparison
 
@@ -145,6 +144,14 @@ VoiceSnip auto-detects standard NVIDIA installation paths. If installed elsewher
 | **Whisper Local GPU** | Free | NVIDIA + CUDA | Local | Speed + Privacy |
 | **Faster Whisper Server** | Free | Running server | Local/Network | GPU sharing |
 | **Deepgram Cloud** | [Pricing](https://deepgram.com/pricing) | API key, Internet | Cloud | Fastest setup |
+
+## Faster Whisper Server (Speaches)
+
+For teams or multi-device setups, you can run a central Speaches server and connect multiple VoiceSnip clients to it. This allows sharing a single GPU across your network while keeping all data on your own infrastructure.
+
+Speaches (formerly faster-whisper-server) is an OpenAI API-compatible server with GPU acceleration support. See the [Speaches Documentation](https://speaches.ai) for installation instructions via Docker or from source.
+
+Configure VoiceSnip clients by setting `FASTER_WHISPER_ENDPOINT` in `voicesnip.ini` to point to your server.
 
 ## Whisper Models
 

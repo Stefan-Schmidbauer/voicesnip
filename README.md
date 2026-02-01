@@ -183,25 +183,6 @@ For HTTPS endpoints with self-signed certificates (e.g., local Faster Whisper Se
 FASTER_WHISPER_VERIFY_SSL=false
 ```
 
-## Project Structure
-
-```
-voicesnip/
-├── main.py              # Entry point
-├── install.py           # Installer
-├── start.sh / start.bat # Startup scripts
-├── voicesnip/           # Main package
-│   ├── core.py          # Orchestration
-│   ├── audio_recorder.py
-│   ├── hotkey_manager.py
-│   ├── text_inserter.py
-│   └── gui/             # GUI components
-└── providers/           # STT providers
-    ├── whisper.py
-    ├── faster_whisper_server.py
-    └── deepgram.py
-```
-
 ## License
 
 MIT License - see LICENSE file.

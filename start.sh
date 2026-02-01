@@ -9,13 +9,14 @@ read_ini_value() {
     local section="$2"
     local key="$3"
 
-    # Use awk to parse INI file
-    awk -F '=' -v section="[$section]" -v key="$key" '
+    # Use awk to parse INI file (handles values containing '=' signs)
+    awk -v section="[$section]" -v key="$key" '
         $0 == section { in_section=1; next }
         /^\[/ { in_section=0 }
-        in_section && $1 ~ "^[[:space:]]*"key"[[:space:]]*$" {
-            gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2)
-            print $2
+        in_section && match($0, "^[[:space:]]*"key"[[:space:]]*=") {
+            val = substr($0, RSTART + RLENGTH)
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", val)
+            print val
             exit
         }
     ' "$file"
@@ -23,15 +24,20 @@ read_ini_value() {
 
 # Find the script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+cd "$SCRIPT_DIR" || exit 1
 
 # Parse quickstrap/installation_profiles.ini
 APP_NAME=$(read_ini_value "quickstrap/installation_profiles.ini" "metadata" "app_name")
-START_CMD=$(read_ini_value "quickstrap/installation_profiles.ini" "metadata" "start_command")
+
+# Try platform-specific start_command first, then fall back to generic
+START_CMD=$(read_ini_value "quickstrap/installation_profiles.ini" "metadata" "start_command_linux")
+if [ -z "$START_CMD" ]; then
+    START_CMD=$(read_ini_value "quickstrap/installation_profiles.ini" "metadata" "start_command")
+fi
 
 # Fallback defaults
 APP_NAME=${APP_NAME:-"Application"}
-START_CMD=${START_CMD:-"python3 main.py"}
+START_CMD=${START_CMD:-"python main.py"}
 
 # App name lowercase for config filename
 APP_NAME_LOWER=$(echo "$APP_NAME" | tr '[:upper:]' '[:lower:]')
@@ -59,8 +65,16 @@ if [ ! -f "$CONFIG_FILE" ]; then
 fi
 
 # Activate virtual environment
-source venv/bin/activate
+source venv/bin/activate || { echo "Failed to activate virtual environment"; exit 1; }
+
+# Convert python3 to python (venv always provides 'python' on all platforms)
+if [ "$START_CMD" = "python3" ]; then
+    START_CMD="python"
+else
+    START_CMD=${START_CMD//python3 /python }
+fi
 
 # Start application with all provided arguments
 echo "Starting $APP_NAME..."
-eval "$START_CMD" "$@"
+read -ra CMD_ARRAY <<< "$START_CMD"
+"${CMD_ARRAY[@]}" "$@"

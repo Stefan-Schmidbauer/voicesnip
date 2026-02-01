@@ -22,7 +22,7 @@ class VoiceSnipCore:
         self.language = language
         self.status_callback = None
         self.text_callback = None  # Callback for transcribed text
-        self._shutting_down = False
+        self._shutting_down = threading.Event()
 
         # Initialize audio recorder
         self.audio_recorder = AudioRecorder(device_id=device_id, sample_rate=sample_rate)
@@ -30,8 +30,9 @@ class VoiceSnipCore:
         # Initialize hotkey manager
         self.hotkey_manager = HotkeyManager(hotkey_str=hotkey)
 
-        # Processing thread reference
+        # Processing thread reference (protected by _processing_lock)
         self.processing_thread = None
+        self._processing_lock = threading.Lock()
 
         # Initialize provider dynamically
         from providers import create_provider
@@ -49,7 +50,7 @@ class VoiceSnipCore:
 
     def notify_text(self, text):
         """Notify listeners about transcribed text"""
-        if self.text_callback and not self._shutting_down:
+        if self.text_callback and not self._shutting_down.is_set():
             try:
                 self.text_callback(text)
             except Exception:
@@ -58,7 +59,7 @@ class VoiceSnipCore:
 
     def update_status(self, message):
         """Update status via callback"""
-        if self.status_callback and not self._shutting_down:
+        if self.status_callback and not self._shutting_down.is_set():
             try:
                 self.status_callback(message)
             except Exception:
@@ -96,15 +97,16 @@ class VoiceSnipCore:
         self.update_status("⏳ Processing...")
 
         # Check if a previous processing is still running
-        if self.processing_thread and self.processing_thread.is_alive():
-            self.update_status("⚠️ Previous recording still processing")
-            return
+        with self._processing_lock:
+            if self.processing_thread and self.processing_thread.is_alive():
+                self.update_status("⚠️ Previous recording still processing")
+                return
 
-        # Process in separate thread to not block GUI
-        # Non-daemon thread to ensure transcription completes
-        self.processing_thread = threading.Thread(target=self._process_audio)
-        self.processing_thread.daemon = False
-        self.processing_thread.start()
+            # Process in separate thread to not block GUI
+            # Non-daemon thread to ensure transcription completes
+            self.processing_thread = threading.Thread(target=self._process_audio)
+            self.processing_thread.daemon = False
+            self.processing_thread.start()
 
     def _process_audio(self):
         """Process audio in background thread"""
@@ -133,7 +135,8 @@ class VoiceSnipCore:
                 self.update_status(f"❌ Error: {str(e)}")
         finally:
             # Clear thread reference when done
-            self.processing_thread = None
+            with self._processing_lock:
+                self.processing_thread = None
 
     def transcribe(self, audio_bytes):
         """Send audio to configured STT provider and get transcription"""
@@ -141,14 +144,16 @@ class VoiceSnipCore:
 
     def cleanup(self):
         """Clean up all resources (streams, threads)"""
-        self._shutting_down = True
+        self._shutting_down.set()
 
         # Clean up audio recorder
         self.audio_recorder.cleanup()
 
         # Wait for processing thread to finish (with timeout)
-        if self.processing_thread and self.processing_thread.is_alive():
-            self.processing_thread.join(timeout=2.0)
+        with self._processing_lock:
+            thread = self.processing_thread
+        if thread and thread.is_alive():
+            thread.join(timeout=2.0)
 
     def on_press(self, key):
         """Handle key press events"""

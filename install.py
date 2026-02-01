@@ -372,14 +372,11 @@ def setup_venv(force: bool = False) -> Path:
     """
     venv_path = Path('venv')
 
-    if force and venv_path.exists():
-        print_info("Removing existing venv...")
-        shutil.rmtree(venv_path)
-
-    if not venv_path.exists():
+    def _create_venv():
+        """Create a new virtual environment, exit on failure."""
         print_info("Creating virtual environment...")
         try:
-            result = subprocess.run(
+            subprocess.run(
                 [sys.executable, '-m', 'venv', 'venv'],
                 capture_output=True,
                 text=True,
@@ -394,6 +391,13 @@ def setup_venv(force: bool = False) -> Path:
         except Exception as e:
             print_error(f"Unexpected error creating virtual environment: {e}")
             sys.exit(1)
+
+    if force and venv_path.exists():
+        print_info("Removing existing venv...")
+        shutil.rmtree(venv_path)
+
+    if not venv_path.exists():
+        _create_venv()
     else:
         # Verify the venv is valid by checking for critical files
         pip_exe, python_exe = get_venv_paths(venv_path)
@@ -402,22 +406,7 @@ def setup_venv(force: bool = False) -> Path:
             print_warning("Virtual environment exists but appears corrupted")
             print_info("Recreating virtual environment...")
             shutil.rmtree(venv_path)
-            try:
-                result = subprocess.run(
-                    [sys.executable, '-m', 'venv', 'venv'],
-                    capture_output=True,
-                    text=True,
-                    check=True
-                )
-                print_success("Virtual environment created")
-            except subprocess.CalledProcessError as e:
-                print_error("Failed to create virtual environment")
-                if e.stderr:
-                    print_error(f"Error: {e.stderr}")
-                sys.exit(1)
-            except Exception as e:
-                print_error(f"Unexpected error creating virtual environment: {e}")
-                sys.exit(1)
+            _create_venv()
         else:
             print_info("Virtual environment already exists")
 
@@ -438,7 +427,7 @@ def check_package_updates(venv_path: Path, requirements_file: str) -> Dict[str, 
         print_error(f"Requirements file not found: {requirements_file}")
         return {}
 
-    pip_exe = venv_path / 'bin' / 'pip'
+    pip_exe, _ = get_venv_paths(venv_path)
 
     if not pip_exe.exists():
         print_error(f"pip not found at {pip_exe}")
@@ -461,7 +450,7 @@ def check_package_updates(venv_path: Path, requirements_file: str) -> Dict[str, 
         import json
         outdated = json.loads(result.stdout)
         return {pkg['name']: pkg['latest_version'] for pkg in outdated}
-    except:
+    except Exception:
         return {}
 
 
@@ -479,7 +468,7 @@ def update_python_packages(venv_path: Path, requirements_file: str) -> bool:
         print_error(f"Requirements file not found: {requirements_file}")
         return False
 
-    pip_exe = venv_path / 'bin' / 'pip'
+    pip_exe, _ = get_venv_paths(venv_path)
 
     if not pip_exe.exists():
         print_error(f"pip not found at {pip_exe}")
@@ -1070,31 +1059,6 @@ Examples:
 
     # Print header
     print_header(f"{app_name} Installation")
-
-    # Validation mode - validate all profiles without installing
-    if args.validate:
-        print_header("Validation Mode")
-        print_info(f"Validating {len(profiles)} profile(s)...")
-
-        all_valid = True
-        for profile_name, profile_config in profiles.items():
-            print_info(f"Validating profile: {profile_name}")
-            missing_files = validate_profile_files(profile_config)
-            if missing_files:
-                all_valid = False
-                print_error(f"  Profile '{profile_name}' has missing files:")
-                for missing_file in missing_files:
-                    print(f"    - {missing_file}")
-            else:
-                print_success(f"  Profile '{profile_name}' is valid")
-
-        print()
-        if all_valid:
-            print_success("All profiles validated successfully")
-            sys.exit(0)
-        else:
-            print_error("Validation failed - some profiles have missing files")
-            sys.exit(1)
 
     # Show loaded profiles
     print_info("Loading installation profiles...")

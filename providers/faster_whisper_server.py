@@ -107,10 +107,10 @@ class FasterWhisperServerProvider(STTProvider):
                 result = response.json()
                 transcript = result.get('text', '').strip()
                 return transcript if transcript else None
+            elif response.status_code in (401, 403):
+                raise ValueError(f"Authentication failed ({response.status_code})")
             else:
-                print(f"Faster Whisper Server Error: {response.status_code} - {response.text}")
-                return None
+                raise RuntimeError(f"Server error ({response.status_code})")
 
         except requests.exceptions.RequestException as e:
-            print(f"Faster Whisper Server network error: {e}")
-            return None
+            raise RuntimeError(f"Network error: {e}")

@@ -99,6 +99,8 @@ class AudioRecorder:
         """
         # Concatenate all audio chunks
         with self.audio_data_lock:
+            if not self.audio_data:
+                raise ValueError("No audio data recorded")
             audio_array = np.concatenate(self.audio_data, axis=0)
 
         # Create WAV file in memory

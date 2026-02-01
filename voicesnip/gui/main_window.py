@@ -657,10 +657,18 @@ class VoiceSnipGUI:
 
         if self.recorded_keys:
             hotkey_string = format_hotkey(self.recorded_keys)
+            # Schedule GUI updates on main thread (pynput callbacks run on listener thread)
+            self.root.after(0, lambda: self._apply_recorded_hotkey(hotkey_string))
+
+    def _apply_recorded_hotkey(self, hotkey_string):
+        """Apply recorded hotkey to GUI (must run on main thread)"""
+        try:
             self.hotkey_entry.configure(state="normal")
             self.hotkey_entry.delete(0, "end")
             self.hotkey_entry.insert(0, hotkey_string)
             self.stop_hotkey_recording()
+        except Exception:
+            pass
 
     def stop_hotkey_recording(self):
         """Stop hotkey recording"""

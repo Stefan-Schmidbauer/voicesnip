@@ -7,7 +7,7 @@ Push-to-Talk Speech-to-Text for Linux and Windows. Hold a hotkey, speak, release
 ## Features
 
 - **Push-to-Talk**: Hold hotkey to record, release to transcribe
-- **Multiple Providers**: Local Whisper (CPU/GPU), Faster Whisper Server, or Deepgram Cloud
+- **Multiple Providers**: Local Whisper (CPU/GPU), Speaches Server, or Deepgram Cloud
 - **Privacy-First**: Local Whisper keeps all data on your device
 - **GPU Acceleration**: Much faster with NVIDIA GPU
 - **Configurable Hotkeys**: Any key combination (Ctrl+Space, Alt+R, etc.)
@@ -25,7 +25,7 @@ Download the latest release for your platform:
 | **Windows** | [VoiceSnip-Windows.zip](https://github.com/Stefan-Schmidbauer/voicesnip/releases/latest) |
 | **Linux** | [VoiceSnip-Linux.tar.gz](https://github.com/Stefan-Schmidbauer/voicesnip/releases/latest) |
 
-These builds include local transcription (Whisper CPU/GPU), Faster Whisper Server, and Deepgram Cloud support.
+These builds include local transcription (Whisper CPU/GPU), Speaches Server, and Deepgram Cloud support.
 
 > **GPU Acceleration:** Requires NVIDIA GPU with CUDA 12 + cuDNN installed. If unavailable, select "Whisper Local CPU".
 
@@ -50,14 +50,15 @@ chmod +x VoiceSnip-Linux.AppImage
 
 ### 2. Configure (Optional)
 
-For **Deepgram Cloud** or **Faster Whisper Server**, edit `voicesnip.ini`:
+For **Deepgram Cloud** or **Speaches Server**, edit `voicesnip.ini`:
 
 ```ini
 DEEPGRAM_API_KEY=your_api_key_here
 DEEPGRAM_ENDPOINT=https://api.deepgram.com/v1/listen
 
-# For Faster Whisper Server:
-FASTER_WHISPER_ENDPOINT=http://your-server:8000/v1/audio/transcriptions
+# For Speaches Server:
+SPEACHES_ENDPOINT=http://your-server:8000/v1/audio/transcriptions
+SPEACHES_MODEL=Systran/faster-whisper-large-v3
 ```
 
 **Note:** Local Whisper works without any configuration!
@@ -120,8 +121,8 @@ py install.py          # Windows
 
 | Profile | Description |
 |---------|-------------|
-| **basis** | Whisper CPU + Deepgram + Faster-Whisper-Server |
-| **cuda** | Whisper CPU/GPU + Deepgram + Faster-Whisper-Server<br>(requires NVIDIA GPU) |
+| **basis** | Whisper CPU + Deepgram + Speaches Server |
+| **cuda** | Whisper CPU/GPU + Deepgram + Speaches Server<br>(requires NVIDIA GPU) |
 
 ### Run
 
@@ -142,16 +143,16 @@ When using `install.py --profile cuda`, CUDA libraries are installed automatical
 |----------|------|--------------|---------|----------|
 | **Whisper Local CPU** | Free | None | Local | Privacy, offline |
 | **Whisper Local GPU** | Free | NVIDIA + CUDA | Local | Speed + Privacy |
-| **Faster Whisper Server** | Free | Running server | Local/Network | GPU sharing |
+| **Speaches Server** | Free | Running server | Local/Network | GPU sharing |
 | **Deepgram Cloud** | [Pricing](https://deepgram.com/pricing) | API key, Internet | Cloud | Fastest setup |
 
-## Faster Whisper Server (Speaches)
+## Speaches Server
 
 For teams or multi-device setups, you can run a central Speaches server and connect multiple VoiceSnip clients to it. This allows sharing a single GPU across your network while keeping all data on your own infrastructure.
 
-Speaches (formerly faster-whisper-server) is an OpenAI API-compatible server with GPU acceleration support. See the [Speaches Documentation](https://speaches.ai) for installation instructions via Docker or from source.
+[Speaches](https://speaches.ai) is an OpenAI API-compatible server with GPU acceleration support. See the [Speaches Documentation](https://speaches.ai) for installation instructions via Docker or from source.
 
-Configure VoiceSnip clients by setting `FASTER_WHISPER_ENDPOINT` in `voicesnip.ini` to point to your server.
+Configure VoiceSnip clients by setting `SPEACHES_ENDPOINT` and `SPEACHES_MODEL` in `voicesnip.ini` to point to your server. The model can also be selected in the GUI — available models are queried from the server automatically.
 
 ## Whisper Models
 
@@ -177,11 +178,14 @@ Models download automatically on first use.
 
 ## Advanced Configuration
 
-For HTTPS endpoints with self-signed certificates (e.g., local Faster Whisper Server with TLS):
+### Speaches Server
 
-```ini
-FASTER_WHISPER_VERIFY_SSL=false
-```
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SPEACHES_ENDPOINT` | Yes | API URL, e.g. `http://your-server:8000/v1/audio/transcriptions` |
+| `SPEACHES_MODEL` | Yes | Hugging Face model name, e.g. `Systran/faster-whisper-large-v3` |
+| `SPEACHES_API_KEY` | No | Bearer token for authenticated servers |
+| `SPEACHES_VERIFY_SSL` | No | Set to `false` for self-signed certificates |
 
 ## License
 

@@ -255,10 +255,10 @@ class VoiceSnipGUI:
                 providers.append(display_name)
                 self.provider_display_to_name[display_name] = "whisper-local-gpu"
 
-        if 'faster-whisper-server' in self.features:
-            display_name = "Faster Whisper Server"
+        if 'speaches' in self.features:
+            display_name = "Speaches Server"
             providers.append(display_name)
-            self.provider_display_to_name[display_name] = "faster-whisper-server"
+            self.provider_display_to_name[display_name] = "speaches"
 
         if 'deepgram' in self.features:
             display_name = "Deepgram Cloud (API Key required)"
@@ -578,8 +578,8 @@ class VoiceSnipGUI:
         # Determine base provider for config storage
         if 'whisper' in provider_name and 'server' not in provider_name:
             base_provider = 'whisper'
-        elif 'faster-whisper-server' in provider_name:
-            base_provider = 'faster-whisper-server'
+        elif 'speaches' in provider_name:
+            base_provider = 'speaches'
         else:
             base_provider = 'deepgram'
 
@@ -721,8 +721,8 @@ class VoiceSnipGUI:
         # Determine base provider for config storage
         if 'whisper' in provider_name and 'server' not in provider_name:
             base_provider = 'whisper'
-        elif 'faster-whisper-server' in provider_name:
-            base_provider = 'faster-whisper-server'
+        elif 'speaches' in provider_name:
+            base_provider = 'speaches'
         else:
             base_provider = 'deepgram'
 
@@ -732,11 +732,9 @@ class VoiceSnipGUI:
             messagebox.showerror("Error", "Please configure a hotkey.")
             return
 
-        # Only validate model if provider requires one (not for providers with external model config)
-        if provider_name != 'faster-whisper-server':
-            if not model or model.startswith("N/A"):
-                messagebox.showerror("Error", "Please select a model.")
-                return
+        if not model or model.startswith("N/A"):
+            messagebox.showerror("Error", "Please select a model.")
+            return
 
         # Prepare provider config
         provider_config = {}
@@ -745,10 +743,10 @@ class VoiceSnipGUI:
             provider_config['model'] = model
             provider_config['api_key'] = os.getenv('DEEPGRAM_API_KEY')
             provider_config['endpoint'] = os.getenv('DEEPGRAM_ENDPOINT')
-        elif provider_name == 'faster-whisper-server':
-            # Faster Whisper Server doesn't use model parameter (configured on server)
-            provider_config['endpoint'] = os.getenv('FASTER_WHISPER_ENDPOINT')
-            api_key = os.getenv('FASTER_WHISPER_API_KEY')
+        elif provider_name == 'speaches':
+            provider_config['model'] = model
+            provider_config['endpoint'] = os.getenv('SPEACHES_ENDPOINT')
+            api_key = os.getenv('SPEACHES_API_KEY')
             if api_key:
                 provider_config['api_key'] = api_key
         else:

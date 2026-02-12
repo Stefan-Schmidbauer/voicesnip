@@ -12,10 +12,27 @@ __pycache__/
 *.so
 .Python
 
+# Build artifacts (PyInstaller, setuptools)
+build/
+dist/
+*.egg-info/
+*.spec
+
 # Virtual environment
 venv/
 env/
 ENV/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
 
 # IDE
 .vscode/

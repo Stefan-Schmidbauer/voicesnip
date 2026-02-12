@@ -150,9 +150,13 @@ class VoiceSnipCore:
         self.audio_recorder.cleanup()
 
         # Wait for processing thread to finish (with timeout)
+        # Read thread reference and alive status atomically to avoid race condition
         with self._processing_lock:
             thread = self.processing_thread
-        if thread and thread.is_alive():
+            should_join = thread is not None and thread.is_alive()
+
+        # Join outside of lock to avoid blocking other operations
+        if should_join:
             thread.join(timeout=2.0)
 
     def on_press(self, key):

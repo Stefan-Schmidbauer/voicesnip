@@ -87,22 +87,20 @@ class DeepgramProvider(STTProvider):
 
             if response.status_code == 200:
                 result = response.json()
-                transcript = result.get('results', {}).get('channels', [{}])[0]\
-                    .get('alternatives', [{}])[0].get('transcript', '')
-                return transcript.strip()
+                channels = result.get('results', {}).get('channels', [])
+                if not channels:
+                    return None
+                alternatives = channels[0].get('alternatives', [])
+                if not alternatives:
+                    return None
+                transcript = alternatives[0].get('transcript', '')
+                return transcript.strip() if transcript else None
             elif response.status_code == 401:
-                # Invalid API key
-                print(f"Deepgram API Error: {response.status_code} - {response.text}")
                 raise ValueError("Invalid Deepgram API key")
             elif response.status_code == 403:
-                # Access forbidden
-                print(f"Deepgram API Error: {response.status_code} - {response.text}")
                 raise ValueError("Deepgram API access forbidden (check API key permissions)")
             else:
-                # Other API errors
-                print(f"Deepgram API Error: {response.status_code} - {response.text}")
-                raise RuntimeError(f"Deepgram API returned status code {response.status_code}")
+                raise RuntimeError(f"Deepgram API error (HTTP {response.status_code})")
 
         except requests.exceptions.RequestException as e:
-            print(f"Deepgram network error: {e}")
-            raise RuntimeError(f"Network error: {str(e)}")
+            raise RuntimeError(f"Deepgram network error: {e}")

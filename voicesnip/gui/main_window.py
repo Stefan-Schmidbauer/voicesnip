@@ -600,6 +600,8 @@ class VoiceSnipGUI:
                     self.language_combo.set(LANGUAGE_NAMES[LANGUAGE_CODE_TO_INDEX[lang_code]])
         except Exception as e:
             self.model_combo.configure(values=[])
+            self.model_combo.set("Error loading models")
+            self.model_combo.configure(state='disabled')
             print(f"Error loading models for {provider_name}: {e}")
 
     def update_status(self, message):

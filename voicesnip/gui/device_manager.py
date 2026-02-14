@@ -2,129 +2,179 @@
 GUI Device Manager
 
 Handles audio device detection, filtering, and display name formatting.
+Supports PipeWire/PulseAudio on Linux (proper device descriptions) with
+fallback to sounddevice/PortAudio enumeration on other platforms.
 """
+
+import subprocess
 
 import sounddevice as sd
 
 from ..constants import COMMON_SAMPLE_RATES
 
 
-def is_physical_device(device_name):
-    """Check if device is a physical microphone (not virtual/system device)"""
-    device_lower = device_name.lower()
+def _get_pulseaudio_sources():
+    """Query PulseAudio/PipeWire for available input sources.
 
-    # Exclude only virtual/system devices that are NOT physical hardware
-    exclude_exact = [
-        'pipewire',
-        'default',
-    ]
+    Parses `pactl list sources` output to get source names, descriptions,
+    and sample rates. Filters out monitor sources (output captures).
 
-    # Exclude devices that match these patterns exactly
-    for keyword in exclude_exact:
-        if device_lower == keyword:
-            return False
+    Returns:
+        List of (source_name, description, sample_rate) tuples, or None if unavailable.
+    """
+    try:
+        import os
+        env = os.environ.copy()
+        env['LANG'] = 'C'
+        result = subprocess.run(
+            ['pactl', 'list', 'sources'],
+            capture_output=True, text=True, timeout=5, env=env
+        )
+        if result.returncode != 0:
+            return None
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
 
-    # Exclude devices with monitor/loopback in name
-    exclude_keywords = [
-        'monitor',
-        'loopback',
-    ]
+    sources = []
+    current = {}
 
-    for keyword in exclude_keywords:
-        if keyword in device_lower:
-            return False
+    for line in result.stdout.splitlines():
+        stripped = line.strip()
+        if stripped.startswith('Source #'):
+            if current.get('name'):
+                sources.append(current)
+            current = {}
+        elif stripped.startswith('Name:'):
+            current['name'] = stripped.split(':', 1)[1].strip()
+        elif stripped.startswith('Description:'):
+            current['description'] = stripped.split(':', 1)[1].strip()
+        elif stripped.startswith('Sample Specification:'):
+            # Parse e.g. "s32le 2ch 48000Hz"
+            spec = stripped.split(':', 1)[1].strip()
+            for part in spec.split():
+                if part.endswith('Hz'):
+                    try:
+                        current['sample_rate'] = int(part[:-2])
+                    except ValueError:
+                        pass
 
-    # Include all devices with hardware identifier (hw:)
-    if 'hw:' in device_lower:
-        return True
+    if current.get('name'):
+        sources.append(current)
 
-    # Also include known physical device patterns
-    include_indicators = [
-        'usb audio',
-        'røde',
-        'rode',
-        'videomic',
-        'blue',
-        'shure',
-        'audio-technica',
-        'samson',
-        'focusrite',
-        'scarlett',
-        'behringer',
-    ]
+    # Filter: only actual input sources, not output monitors
+    input_sources = []
+    for src in sources:
+        name = src.get('name', '')
+        desc = src.get('description', '')
+        rate = src.get('sample_rate', 48000)
 
-    for indicator in include_indicators:
-        if indicator in device_lower:
-            return True
+        if '.monitor' in name or desc.lower().startswith('monitor of'):
+            continue
 
-    # Default: exclude unknown devices to be safe
-    return False
+        input_sources.append((name, desc, rate))
+
+    return input_sources if input_sources else None
 
 
-def format_device_name(name, sample_rate):
-    """Format device name for better readability"""
-    # Extract meaningful part from technical names
-    if ":" in name and "hw:" in name:
-        # Handle ALSA names like "USB Audio: - (hw:3,0)" or "HD-Audio Generic: ALC257 Analog (hw:1,0)"
-        parts = name.split(":")
-        if len(parts) >= 2:
-            main_name = parts[0].strip()
+def _get_default_pulseaudio_source():
+    """Get the current default PulseAudio/PipeWire source name.
 
-            # Check if there's a descriptive second part (not just "-")
-            second_part = parts[1].strip()
-            if second_part and second_part != "-":
-                # Extract the part before (hw:...)
-                if "(" in second_part:
-                    second_part = second_part.split("(")[0].strip()
-                if second_part:
-                    return f"{main_name}: {second_part} ({sample_rate}Hz)"
+    Returns:
+        Source name string, or None if unavailable.
+    """
+    try:
+        result = subprocess.run(
+            ['pactl', 'get-default-source'],
+            capture_output=True, text=True, timeout=5
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    return None
 
-            # Just use the main name if second part is empty or "-"
-            return f"{main_name} ({sample_rate}Hz)"
 
-    # Special handling for common names
-    if name == "default":
-        return f"Default Microphone ({sample_rate}Hz)"
-    elif name == "pipewire":
-        return f"PipeWire ({sample_rate}Hz)"
-    elif "VideoMic" in name or "RØDE" in name:
-        # Extract brand/model names
-        return f"{name.split(':')[0]} ({sample_rate}Hz)"
+def set_pulseaudio_source(source_name):
+    """Set the default PulseAudio/PipeWire input source.
 
-    # For long names, try to shorten
-    if len(name) > 40:
-        return f"{name[:37]}... ({sample_rate}Hz)"
+    Called before recording to route the user-selected microphone
+    through sounddevice's default device.
 
-    return f"{name} ({sample_rate}Hz)"
+    Args:
+        source_name: PulseAudio source name to set as default.
+
+    Returns:
+        True if successful, False otherwise.
+    """
+    try:
+        result = subprocess.run(
+            ['pactl', 'set-default-source', source_name],
+            capture_output=True, text=True, timeout=5
+        )
+        return result.returncode == 0
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
 
 
 def find_best_sample_rate(device_id):
-    """Find best supported sample rate for device"""
-    # Try common sample rates in order of preference
+    """Find best supported sample rate for a sounddevice device."""
     for rate in COMMON_SAMPLE_RATES:
         try:
             sd.check_input_settings(device=device_id, samplerate=rate)
             return rate
         except (sd.PortAudioError, OSError, ValueError):
             continue
-    # Fallback
     return 44100
 
 
 def populate_devices():
-    """Get available audio input devices
+    """Get available audio input devices.
+
+    Tries PipeWire/PulseAudio first for proper device descriptions
+    (matching what Linux Settings shows), falls back to sounddevice
+    enumeration on non-PipeWire systems.
 
     Returns:
-        tuple: (device_list, display_names) where device_list contains
-               (device_id, device_name, sample_rate) tuples
+        tuple: (device_list, display_names, default_source_id)
+
+        device_list contains (device_id, device_name, sample_rate) tuples where:
+        - device_id: PulseAudio source name (str) or sounddevice index (int)
+        - device_name: Identifier for config persistence
+        - sample_rate: Recording sample rate
+        - default_source_id: PA source name (str) or sounddevice index (int)
     """
+    # Try PulseAudio/PipeWire first (Linux with PipeWire/PulseAudio)
+    pa_sources = _get_pulseaudio_sources()
+    if pa_sources:
+        device_list = []
+        display_names = []
+
+        # Get default source for pre-selection
+        default_source = _get_default_pulseaudio_source()
+
+        # Find sample rate for the default sounddevice device (used for recording)
+        try:
+            default_rate = find_best_sample_rate(None)
+        except Exception:
+            default_rate = 48000
+
+        for name, description, _native_rate in pa_sources:
+            device_list.append((name, name, default_rate))
+            display_names.append(description)
+
+        return device_list, display_names, default_source
+
+    # Fallback: sounddevice enumeration (Windows, macOS, non-PipeWire Linux)
+    return _populate_devices_sounddevice()
+
+
+def _populate_devices_sounddevice():
+    """Fallback: enumerate devices via sounddevice/PortAudio."""
     devices = sd.query_devices()
     device_list = []
     display_names = []
-    all_input_devices = []  # Fallback: store all input devices
-    default_device_info = None
+    all_input_devices = []
 
-    # Get the default input device
     try:
         default_device_info = sd.query_devices(kind='input')
         default_idx = default_device_info['index'] if isinstance(default_device_info, dict) else None
@@ -133,41 +183,78 @@ def populate_devices():
 
     for idx, device in enumerate(devices):
         name = device['name']
-        is_input = device['max_input_channels'] > 0
-
-        # Only show devices with input channels
-        if not is_input:
+        if device['max_input_channels'] <= 0:
             continue
 
-        # Store all input devices as fallback
         try:
             best_rate = find_best_sample_rate(idx)
         except (sd.PortAudioError, OSError):
-            best_rate = 48000  # Default fallback
+            best_rate = 48000
 
         all_input_devices.append((idx, name, best_rate))
 
-        # ALWAYS include the default device, even if it's not "physical"
+        # Always include the system default device
         if idx == default_idx:
-            display_name = format_device_name(name, best_rate)
+            display_name = _format_device_name_alsa(name, best_rate)
             device_list.append((idx, name, best_rate))
             display_names.append(display_name)
             continue
 
-        # Filter to only show physical devices
-        if not is_physical_device(name):
+        # Filter out virtual/system devices
+        if not _is_physical_device(name):
             continue
 
-        # Shorten name for better readability
-        display_name = format_device_name(name, best_rate)
+        display_name = _format_device_name_alsa(name, best_rate)
         device_list.append((idx, name, best_rate))
         display_names.append(display_name)
 
-    # Fallback: If no physical devices found, use all input devices
+    # Fallback: if no physical devices found, show all input devices
     if not device_list and all_input_devices:
         for idx, name, best_rate in all_input_devices:
-            display_name = format_device_name(name, best_rate)
+            display_name = _format_device_name_alsa(name, best_rate)
             device_list.append((idx, name, best_rate))
             display_names.append(display_name)
 
     return device_list, display_names, default_idx
+
+
+def _is_physical_device(device_name):
+    """Check if device is a physical microphone (blocklist approach)."""
+    device_lower = device_name.lower()
+
+    exclude_exact = ['pipewire', 'default']
+    for keyword in exclude_exact:
+        if device_lower == keyword:
+            return False
+
+    exclude_keywords = ['monitor', 'loopback']
+    for keyword in exclude_keywords:
+        if keyword in device_lower:
+            return False
+
+    return True
+
+
+def _format_device_name_alsa(name, sample_rate):
+    """Format ALSA device name for display (sounddevice fallback path)."""
+    if ":" in name and "hw:" in name:
+        parts = name.split(":")
+        if len(parts) >= 2:
+            main_name = parts[0].strip()
+            second_part = parts[1].strip()
+            if second_part and second_part != "-":
+                if "(" in second_part:
+                    second_part = second_part.split("(")[0].strip()
+                if second_part:
+                    return f"{main_name}: {second_part} ({sample_rate}Hz)"
+            return f"{main_name} ({sample_rate}Hz)"
+
+    if name == "default":
+        return f"Default Microphone ({sample_rate}Hz)"
+    elif name == "pipewire":
+        return f"PipeWire ({sample_rate}Hz)"
+
+    if len(name) > 40:
+        return f"{name[:37]}... ({sample_rate}Hz)"
+
+    return f"{name} ({sample_rate}Hz)"

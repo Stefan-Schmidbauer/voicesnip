@@ -55,7 +55,12 @@ class AudioRecorder:
             'callback': self.audio_callback
         }
 
-        if self.device_id is not None:
+        if isinstance(self.device_id, str):
+            # PulseAudio source name: set as default, record from default device
+            from .gui.device_manager import set_pulseaudio_source
+            set_pulseaudio_source(self.device_id)
+            # Don't set stream device → records from default (now the selected source)
+        elif self.device_id is not None:
             stream_params['device'] = self.device_id
 
         try:

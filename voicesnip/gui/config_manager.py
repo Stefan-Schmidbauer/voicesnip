@@ -70,11 +70,16 @@ def load_installation_config():
         if not profile or not features:
             raise ValueError("Invalid config: missing profile or features")
 
-        return {
+        result = {
             'profile': profile,
             'features': features,
             'install_date': config['installation'].get('install_date', 'unknown'),
         }
+        # Forward all additional keys from [installation] (e.g. speaches_allowed_models)
+        for key in config['installation']:
+            if key not in ('profile', 'features', 'install_date'):
+                result[key] = config['installation'][key]
+        return result
 
     except Exception as e:
         import tkinter as tk

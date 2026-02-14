@@ -241,29 +241,17 @@ class VoiceSnipGUI:
             command=lambda _: self.on_provider_changed()
         )
 
-        # Build provider list dynamically
+        # Build provider list dynamically from registry
+        from providers import get_providers_for_features
+
         self.provider_display_to_name = {}
+        self.provider_registry_map = {}  # key -> registry entry
         providers = []
 
-        if 'whisper' in self.features:
-            display_name = "Whisper Local CPU (Free)"
-            providers.append(display_name)
-            self.provider_display_to_name[display_name] = "whisper-local-cpu"
-
-            if 'cuda' in self.features:
-                display_name = "Whisper Local GPU (Free, CUDA)"
-                providers.append(display_name)
-                self.provider_display_to_name[display_name] = "whisper-local-gpu"
-
-        if 'speaches' in self.features:
-            display_name = "Speaches Server"
-            providers.append(display_name)
-            self.provider_display_to_name[display_name] = "speaches"
-
-        if 'deepgram' in self.features:
-            display_name = "Deepgram Cloud (API Key required)"
-            providers.append(display_name)
-            self.provider_display_to_name[display_name] = "deepgram-cloud"
+        for entry in get_providers_for_features(self.features):
+            providers.append(entry['display_name'])
+            self.provider_display_to_name[entry['display_name']] = entry['key']
+            self.provider_registry_map[entry['key']] = entry
 
         self.provider_combo.configure(values=providers)
         if providers:
@@ -575,17 +563,21 @@ class VoiceSnipGUI:
             return
 
         provider_name = self.provider_display_to_name[selected_display]
-        # Determine base provider for config storage
-        if 'whisper' in provider_name and 'server' not in provider_name:
-            base_provider = 'whisper'
-        elif 'speaches' in provider_name:
-            base_provider = 'speaches'
-        else:
-            base_provider = 'deepgram'
+        entry = self.provider_registry_map[provider_name]
+        config_key = entry['config_key']
 
         try:
             from providers import create_provider
-            provider = create_provider(provider_name)
+
+            # Build provider config from INI settings for model listing
+            provider_config = {}
+            prefix = config_key.replace('-', '_') + '_'
+            for ini_key, value in self.installation_config.items():
+                if ini_key.startswith(prefix):
+                    setting_name = ini_key[len(prefix):]
+                    provider_config[setting_name] = value
+
+            provider = create_provider(provider_name, **provider_config)
             models = provider.get_available_models()
             self.model_combo.configure(values=models)
 
@@ -595,7 +587,7 @@ class VoiceSnipGUI:
                 self.model_combo.configure(state='disabled')
             else:
                 self.model_combo.configure(state='readonly')
-                saved_model = self.config.get('provider', {}).get(base_provider, {}).get('model')
+                saved_model = self.config.get('provider', {}).get(config_key, {}).get('model')
 
                 if saved_model and saved_model in models:
                     self.model_combo.set(saved_model)
@@ -717,14 +709,8 @@ class VoiceSnipGUI:
             messagebox.showerror("Error", "Please select a valid provider.")
             return
         provider_name = self.provider_display_to_name[selected_provider_display]
-
-        # Determine base provider for config storage
-        if 'whisper' in provider_name and 'server' not in provider_name:
-            base_provider = 'whisper'
-        elif 'speaches' in provider_name:
-            base_provider = 'speaches'
-        else:
-            base_provider = 'deepgram'
+        entry = self.provider_registry_map[provider_name]
+        config_key = entry['config_key']
 
         model = self.model_combo.get()
 
@@ -732,34 +718,32 @@ class VoiceSnipGUI:
             messagebox.showerror("Error", "Please configure a hotkey.")
             return
 
-        if not model or model.startswith("N/A"):
+        if model and model.startswith("N/A"):
+            model = None  # Provider doesn't need model selection
+        elif not model:
             messagebox.showerror("Error", "Please select a model.")
             return
 
-        # Prepare provider config
+        # Prepare provider config generically
         provider_config = {}
+        if model:
+            provider_config['model'] = model
 
-        if provider_name == 'deepgram-cloud':
-            provider_config['model'] = model
-            provider_config['api_key'] = os.getenv('DEEPGRAM_API_KEY')
-            provider_config['endpoint'] = os.getenv('DEEPGRAM_ENDPOINT')
-        elif provider_name == 'speaches':
-            provider_config['model'] = model
-            provider_config['endpoint'] = os.getenv('SPEACHES_ENDPOINT')
-            api_key = os.getenv('SPEACHES_API_KEY')
-            if api_key:
-                provider_config['api_key'] = api_key
-        else:
-            # Local Whisper providers
-            provider_config['model'] = model
+        # Forward INI settings with matching config_key prefix to provider
+        prefix = config_key.replace('-', '_') + '_'
+        for ini_key, value in self.installation_config.items():
+            if ini_key.startswith(prefix):
+                setting_name = ini_key[len(prefix):]
+                provider_config[setting_name] = value
 
         # Save settings
         if 'provider' not in self.config:
             self.config['provider'] = {}
         self.config['provider']['selected'] = provider_name
-        if base_provider not in self.config['provider']:
-            self.config['provider'][base_provider] = {}
-        self.config['provider'][base_provider]['model'] = model
+        if config_key not in self.config['provider']:
+            self.config['provider'][config_key] = {}
+        if model:
+            self.config['provider'][config_key]['model'] = model
 
         self.config['device_name'] = device_name
         self.config['language'] = language
@@ -767,8 +751,8 @@ class VoiceSnipGUI:
         self.config['auto_clipboard'] = self.auto_clipboard_var.get()
         save_config(self.config)
 
-        # CUDA validation for GPU provider
-        if provider_name == 'whisper-local-gpu':
+        # CUDA validation for providers requiring CUDA
+        if 'cuda' in entry.get('features', []):
             cudnn_found, cublas_found, dll_details = find_cuda_dlls()
 
             if not cudnn_found or not cublas_found:
@@ -819,10 +803,9 @@ class VoiceSnipGUI:
             self.core.set_status_callback(self.update_status)
             self.core.set_text_callback(self.update_transcription)
 
-            # Only show model download info for local Whisper (not for server-based providers)
-            if 'whisper' in provider_name and 'server' not in provider_name:
-                if not self.core.stt_provider.is_model_downloaded():
-                    show_model_download_info(self.root, model)
+            # Show model download info if provider reports model not downloaded
+            if not self.core.stt_provider.is_model_downloaded():
+                show_model_download_info(self.root, model)
 
             self.update_status("Ready")
             self.root.update()

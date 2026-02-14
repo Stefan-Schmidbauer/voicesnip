@@ -11,8 +11,8 @@ import requests
 from typing import Optional, List
 from .base import STTProvider
 
-# Well-known faster-whisper models as fallback when server is unreachable
-FALLBACK_MODELS = [
+# Well-known faster-whisper models (always shown, even if server is unreachable)
+KNOWN_MODELS = [
     "Systran/faster-whisper-large-v3",
     "Systran/faster-whisper-medium",
     "Systran/faster-whisper-small",
@@ -26,7 +26,8 @@ class SpeachesProvider(STTProvider):
     """Speaches STT provider (network/remote server)"""
 
     def __init__(self, endpoint: Optional[str] = None, api_key: Optional[str] = None,
-                 verify_ssl: Optional[bool] = None, model: Optional[str] = None):
+                 verify_ssl: Optional[bool] = None, model: Optional[str] = None,
+                 allowed_models: Optional[str] = None, **kwargs):
         """
         Initialize Speaches provider.
 
@@ -35,11 +36,21 @@ class SpeachesProvider(STTProvider):
             api_key: Optional API key for authentication (defaults to SPEACHES_API_KEY env var)
             verify_ssl: Whether to verify SSL certificates (defaults to SPEACHES_VERIFY_SSL env var, True if not set)
             model: Hugging Face model identifier (defaults to SPEACHES_MODEL env var)
+            allowed_models: Comma-separated list of allowed model IDs to filter the model list
+                           (defaults to SPEACHES_ALLOWED_MODELS env var)
+            **kwargs: Ignored (allows generic config forwarding)
         """
         self.endpoint = endpoint or os.getenv("SPEACHES_ENDPOINT",
                                               "http://localhost:8000/v1/audio/transcriptions")
         self.api_key = api_key or os.getenv("SPEACHES_API_KEY")
         self.model = model or os.getenv("SPEACHES_MODEL", "Systran/faster-whisper-large-v3")
+
+        # Allowed models filter (from INI config or env var)
+        allowed = allowed_models or os.getenv("SPEACHES_ALLOWED_MODELS")
+        if allowed:
+            self.allowed_models = [m.strip() for m in allowed.split(',') if m.strip()]
+        else:
+            self.allowed_models = None
 
         # SSL verification - defaults to True unless explicitly disabled
         if verify_ssl is not None:
@@ -76,11 +87,15 @@ class SpeachesProvider(STTProvider):
 
     def get_available_models(self) -> List[str]:
         """
-        Query available models from the Speaches server.
+        Return available models for the Speaches server.
 
-        Falls back to a list of well-known faster-whisper models if the server
-        is unreachable.
+        1. Start with KNOWN_MODELS (hardcoded)
+        2. Try to query /v1/models from server — merge any new models
+        3. If allowed_models is set, filter to only those
         """
+        models = list(KNOWN_MODELS)
+
+        # Try to merge models from server
         try:
             models_url = self._get_base_url() + "/v1/models"
             headers = {}
@@ -90,14 +105,18 @@ class SpeachesProvider(STTProvider):
             response = requests.get(models_url, timeout=5, verify=self.verify_ssl, headers=headers)
             if response.status_code == 200:
                 result = response.json()
-                model_ids = [m['id'] for m in result.get('data', []) if 'id' in m]
-                if model_ids:
-                    return model_ids
+                server_models = [m['id'] for m in result.get('data', []) if 'id' in m]
+                for m in server_models:
+                    if m not in models:
+                        models.append(m)
         except (requests.exceptions.RequestException, ValueError, KeyError):
             pass
 
-        # Fallback: return well-known models
-        return FALLBACK_MODELS
+        # Filter by allowed_models if set
+        if self.allowed_models:
+            models = [m for m in models if m in self.allowed_models]
+
+        return models
 
     def transcribe(self, audio_bytes: bytes, language: Optional[str] = None) -> Optional[str]:
         """

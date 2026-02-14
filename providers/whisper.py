@@ -15,7 +15,7 @@ class WhisperProvider(STTProvider):
     """Faster Whisper local STT provider"""
 
     def __init__(self, model: Optional[str] = None, device: str = "cpu",
-                 compute_type: str = "default"):
+                 compute_type: str = "default", **kwargs):
         """
         Initialize Faster Whisper provider.
 
@@ -23,6 +23,7 @@ class WhisperProvider(STTProvider):
             model: Model size (tiny, base, small, medium, large-v2)
             device: Device to use ('cpu' or 'cuda')
             compute_type: Compute type for CTranslate2
+            **kwargs: Ignored (allows generic config forwarding)
         """
         self.model_name = model or os.getenv("WHISPER_MODEL", "small")
         self.device = device

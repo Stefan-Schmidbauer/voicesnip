@@ -16,7 +16,7 @@ class DeepgramProvider(STTProvider):
 
     def __init__(self, api_key: Optional[str] = None,
                  model: Optional[str] = None,
-                 endpoint: Optional[str] = None):
+                 endpoint: Optional[str] = None, **kwargs):
         """
         Initialize Deepgram provider.
 
@@ -24,6 +24,7 @@ class DeepgramProvider(STTProvider):
             api_key: Deepgram API key (defaults to DEEPGRAM_API_KEY env var)
             model: Model identifier (defaults to DEEPGRAM_MODEL env var)
             endpoint: API endpoint URL (defaults to DEEPGRAM_ENDPOINT env var)
+            **kwargs: Ignored (allows generic config forwarding)
         """
         self.api_key = api_key or os.getenv("DEEPGRAM_API_KEY")
         self.model = model or os.getenv("DEEPGRAM_MODEL", "nova-2-general")

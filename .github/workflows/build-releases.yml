@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - 'v*'  # Trigger on version tags
+    branches:
+      - dev   # Build test artifacts on dev branch (no release)
   workflow_dispatch:  # Allow manual trigger
 
 jobs:

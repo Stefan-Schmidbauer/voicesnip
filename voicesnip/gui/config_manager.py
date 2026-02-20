@@ -75,7 +75,7 @@ def load_installation_config():
             'features': features,
             'install_date': config['installation'].get('install_date', 'unknown'),
         }
-        # Forward all additional keys from [installation] (e.g. speaches_allowed_models)
+        # Forward all additional keys from [installation] (e.g. stt_dynamic_allowed_models)
         for key in config['installation']:
             if key not in ('profile', 'features', 'install_date'):
                 result[key] = config['installation'][key]

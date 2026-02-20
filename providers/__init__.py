@@ -12,8 +12,8 @@ from typing import List, Dict, Any, Optional
 from .base import STTProvider
 from .deepgram import DeepgramProvider
 from .whisper import WhisperProvider
-from .speaches import SpeachesProvider
-from .faster_whisper_server import FasterWhisperServerProvider
+from .stt_server_dynamic import SttServerDynamicProvider
+from .stt_server_fixed import SttServerFixedProvider
 from .whisper_rocm import WhisperROCmProvider
 
 
@@ -41,18 +41,18 @@ PROVIDER_REGISTRY: List[Dict[str, Any]] = [
         'features': ['whisper', 'rocm'],
     },
     {
-        'key': 'faster-whisper-server',
-        'class': FasterWhisperServerProvider,
-        'display_name': 'Faster Whisper Server',
-        'config_key': 'faster-whisper-server',
-        'features': ['faster-whisper-server'],
+        'key': 'stt-server-fixed',
+        'class': SttServerFixedProvider,
+        'display_name': 'STT Server (Fixed Model)',
+        'config_key': 'stt-fixed',
+        'features': ['stt-fixed'],
     },
     {
-        'key': 'speaches',
-        'class': SpeachesProvider,
-        'display_name': 'Speaches Server',
-        'config_key': 'speaches',
-        'features': ['speaches'],
+        'key': 'stt-server-dynamic',
+        'class': SttServerDynamicProvider,
+        'display_name': 'STT Server (Model Selection)',
+        'config_key': 'stt-dynamic',
+        'features': ['stt-dynamic'],
     },
     {
         'key': 'deepgram-cloud',
@@ -84,7 +84,7 @@ def get_registry_entry(key: str) -> Optional[Dict[str, Any]]:
     """Return the registry entry for the given provider key.
 
     Args:
-        key: Provider key (e.g. 'whisper-local-cpu', 'speaches')
+        key: Provider key (e.g. 'whisper-local-cpu', 'stt-server-dynamic')
 
     Returns:
         Registry entry dict or None if not found
@@ -100,7 +100,7 @@ def create_provider(name: str, **config) -> STTProvider:
     Factory method to create provider instance.
 
     Args:
-        name: Provider key (e.g. 'whisper-local-cpu', 'speaches', 'faster-whisper-server')
+        name: Provider key (e.g. 'whisper-local-cpu', 'stt-server-dynamic', 'stt-server-fixed')
         **config: Provider-specific configuration
 
     Returns:
@@ -127,8 +127,8 @@ __all__ = [
     'STTProvider',
     'DeepgramProvider',
     'WhisperProvider',
-    'SpeachesProvider',
-    'FasterWhisperServerProvider',
+    'SttServerDynamicProvider',
+    'SttServerFixedProvider',
     'WhisperROCmProvider',
     'PROVIDER_REGISTRY',
     'get_providers_for_features',

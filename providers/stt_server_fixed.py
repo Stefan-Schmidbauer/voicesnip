@@ -1,9 +1,9 @@
 """
-Faster Whisper Server STT Provider
+STT Server (Fixed Model) Provider
 
-Provides speech-to-text using Faster Whisper Server API (Docker container).
-Compatible with OpenAI Whisper API format.
-No API key required, works over local network.
+Provides speech-to-text using any OpenAI-compatible STT server API.
+The model is configured on the server itself — the client sends audio without model selection.
+Works with faster-whisper-server, insanely-fast-whisper-rocm, or any server exposing /v1/audio/transcriptions.
 """
 
 import os
@@ -12,67 +12,67 @@ from typing import Optional, List
 from .base import STTProvider
 
 
-class FasterWhisperServerProvider(STTProvider):
-    """Faster Whisper Server STT provider (network/remote server)"""
+class SttServerFixedProvider(STTProvider):
+    """STT Server (Fixed Model) provider — model configured on server"""
 
     def __init__(self, endpoint: Optional[str] = None, api_key: Optional[str] = None,
                  verify_ssl: Optional[bool] = None, **kwargs):
         """
-        Initialize Faster Whisper Server provider.
+        Initialize STT Server Fixed provider.
 
         Args:
-            endpoint: API endpoint URL (defaults to FASTER_WHISPER_ENDPOINT env var)
-            api_key: Optional API key for authentication (defaults to FASTER_WHISPER_API_KEY env var)
-            verify_ssl: Whether to verify SSL certificates (defaults to FASTER_WHISPER_VERIFY_SSL env var, True if not set)
+            endpoint: API endpoint URL (defaults to STT_FIXED_ENDPOINT env var)
+            api_key: Optional API key for authentication (defaults to STT_FIXED_API_KEY env var)
+            verify_ssl: Whether to verify SSL certificates (defaults to STT_FIXED_VERIFY_SSL env var, True if not set)
             **kwargs: Ignored (allows generic config forwarding)
 
         Note:
-            The model is configured on the Faster Whisper Server itself.
+            The model is configured on the server itself.
             The server will use whatever model it was configured with.
         """
-        self.endpoint = endpoint or os.getenv("FASTER_WHISPER_ENDPOINT",
+        self.endpoint = endpoint or os.getenv("STT_FIXED_ENDPOINT",
                                               "http://localhost:8000/v1/audio/transcriptions")
-        self.api_key = api_key or os.getenv("FASTER_WHISPER_API_KEY")
+        self.api_key = api_key or os.getenv("STT_FIXED_API_KEY")
 
         # SSL verification - defaults to True unless explicitly disabled
         if verify_ssl is not None:
             self.verify_ssl = verify_ssl
         else:
-            env_verify = os.getenv("FASTER_WHISPER_VERIFY_SSL", "true").lower()
+            env_verify = os.getenv("STT_FIXED_VERIFY_SSL", "true").lower()
             self.verify_ssl = env_verify not in ("false", "0", "no")
 
     @property
     def name(self) -> str:
-        return "Faster Whisper Server"
+        return "STT Server (Fixed Model)"
 
     def validate_config(self) -> None:
-        """Validate Faster Whisper Server configuration"""
+        """Validate STT Server Fixed configuration"""
         if not self.endpoint:
-            raise ValueError("FASTER_WHISPER_ENDPOINT not set")
+            raise ValueError("STT_FIXED_ENDPOINT not set")
 
         # Test connection to server
         try:
             health_url = self.endpoint.replace("/v1/audio/transcriptions", "/health")
             response = requests.get(health_url, timeout=5, verify=self.verify_ssl)
             if response.status_code != 200:
-                raise ValueError(f"Faster Whisper Server health check failed: {response.status_code}")
+                raise ValueError(f"STT server health check failed: {response.status_code}")
         except requests.exceptions.ConnectionError:
-            raise ValueError(f"Cannot connect to Faster Whisper Server at {self.endpoint}")
+            raise ValueError(f"Cannot connect to STT server at {self.endpoint}")
         except requests.exceptions.Timeout:
-            raise ValueError(f"Faster Whisper Server timeout at {self.endpoint}")
+            raise ValueError(f"STT server timeout at {self.endpoint}")
 
     def get_available_models(self) -> List[str]:
         """
-        Return available Faster Whisper models.
+        Return available models.
 
-        Note: The actual model used is determined by the server configuration.
         Returns empty list because model selection is not applicable for this provider.
+        The model is configured on the server itself.
         """
         return []
 
     def transcribe(self, audio_bytes: bytes, language: Optional[str] = None) -> Optional[str]:
         """
-        Transcribe audio using Faster Whisper Server API.
+        Transcribe audio using the STT server API.
 
         Args:
             audio_bytes: WAV format audio data

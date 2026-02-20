@@ -1,9 +1,9 @@
 """
-Speaches STT Provider
+STT Server (Model Selection) Provider
 
-Provides speech-to-text using Speaches server API (Docker container).
-Compatible with OpenAI Whisper API format.
-No API key required, works over local network.
+Provides speech-to-text using any OpenAI-compatible STT server API.
+The client selects the model — the server provides a list of available models.
+Works with Speaches, whisper-asr-webservice, or any server exposing /v1/audio/transcriptions.
 """
 
 import os
@@ -22,31 +22,31 @@ KNOWN_MODELS = [
 ]
 
 
-class SpeachesProvider(STTProvider):
-    """Speaches STT provider (network/remote server)"""
+class SttServerDynamicProvider(STTProvider):
+    """STT Server (Model Selection) provider — client selects the model"""
 
     def __init__(self, endpoint: Optional[str] = None, api_key: Optional[str] = None,
                  verify_ssl: Optional[bool] = None, model: Optional[str] = None,
                  allowed_models: Optional[str] = None, **kwargs):
         """
-        Initialize Speaches provider.
+        Initialize STT Server Dynamic provider.
 
         Args:
-            endpoint: API endpoint URL (defaults to SPEACHES_ENDPOINT env var)
-            api_key: Optional API key for authentication (defaults to SPEACHES_API_KEY env var)
-            verify_ssl: Whether to verify SSL certificates (defaults to SPEACHES_VERIFY_SSL env var, True if not set)
-            model: Hugging Face model identifier (defaults to SPEACHES_MODEL env var)
+            endpoint: API endpoint URL (defaults to STT_DYNAMIC_ENDPOINT env var)
+            api_key: Optional API key for authentication (defaults to STT_DYNAMIC_API_KEY env var)
+            verify_ssl: Whether to verify SSL certificates (defaults to STT_DYNAMIC_VERIFY_SSL env var, True if not set)
+            model: Hugging Face model identifier (defaults to STT_DYNAMIC_MODEL env var)
             allowed_models: Comma-separated list of allowed model IDs to filter the model list
-                           (defaults to SPEACHES_ALLOWED_MODELS env var)
+                           (defaults to STT_DYNAMIC_ALLOWED_MODELS env var)
             **kwargs: Ignored (allows generic config forwarding)
         """
-        self.endpoint = endpoint or os.getenv("SPEACHES_ENDPOINT",
+        self.endpoint = endpoint or os.getenv("STT_DYNAMIC_ENDPOINT",
                                               "http://localhost:8000/v1/audio/transcriptions")
-        self.api_key = api_key or os.getenv("SPEACHES_API_KEY")
-        self.model = model or os.getenv("SPEACHES_MODEL", "Systran/faster-whisper-large-v3")
+        self.api_key = api_key or os.getenv("STT_DYNAMIC_API_KEY")
+        self.model = model or os.getenv("STT_DYNAMIC_MODEL", "Systran/faster-whisper-large-v3")
 
         # Allowed models filter (from INI config or env var)
-        allowed = allowed_models or os.getenv("SPEACHES_ALLOWED_MODELS")
+        allowed = allowed_models or os.getenv("STT_DYNAMIC_ALLOWED_MODELS")
         if allowed:
             self.allowed_models = [m.strip() for m in allowed.split(',') if m.strip()]
         else:
@@ -56,38 +56,38 @@ class SpeachesProvider(STTProvider):
         if verify_ssl is not None:
             self.verify_ssl = verify_ssl
         else:
-            env_verify = os.getenv("SPEACHES_VERIFY_SSL", "true").lower()
+            env_verify = os.getenv("STT_DYNAMIC_VERIFY_SSL", "true").lower()
             self.verify_ssl = env_verify not in ("false", "0", "no")
 
     @property
     def name(self) -> str:
-        return "Speaches"
+        return "STT Server (Model Selection)"
 
     def _get_base_url(self) -> str:
         """Get base URL from endpoint (strip /v1/audio/transcriptions)"""
         return self.endpoint.replace("/v1/audio/transcriptions", "")
 
     def validate_config(self) -> None:
-        """Validate Speaches configuration"""
+        """Validate STT Server Dynamic configuration"""
         if not self.endpoint:
-            raise ValueError("SPEACHES_ENDPOINT not set")
+            raise ValueError("STT_DYNAMIC_ENDPOINT not set")
         if not self.model:
-            raise ValueError("SPEACHES_MODEL not set")
+            raise ValueError("STT_DYNAMIC_MODEL not set")
 
         # Test connection to server
         try:
             health_url = self._get_base_url() + "/health"
             response = requests.get(health_url, timeout=5, verify=self.verify_ssl)
             if response.status_code != 200:
-                raise ValueError(f"Speaches server health check failed: {response.status_code}")
+                raise ValueError(f"STT server health check failed: {response.status_code}")
         except requests.exceptions.ConnectionError:
-            raise ValueError(f"Cannot connect to Speaches server at {self.endpoint}")
+            raise ValueError(f"Cannot connect to STT server at {self.endpoint}")
         except requests.exceptions.Timeout:
-            raise ValueError(f"Speaches server timeout at {self.endpoint}")
+            raise ValueError(f"STT server timeout at {self.endpoint}")
 
     def get_available_models(self) -> List[str]:
         """
-        Return available models for the Speaches server.
+        Return available models from the STT server.
 
         1. Start with KNOWN_MODELS (hardcoded)
         2. Try to query /v1/models from server — merge any new models
@@ -120,7 +120,7 @@ class SpeachesProvider(STTProvider):
 
     def transcribe(self, audio_bytes: bytes, language: Optional[str] = None) -> Optional[str]:
         """
-        Transcribe audio using Speaches server API.
+        Transcribe audio using the STT server API.
 
         Args:
             audio_bytes: WAV format audio data

@@ -222,12 +222,15 @@ class WhisperROCmProvider(STTProvider):
                 audio_data = wav_file.readframes(n_frames)
                 audio_np = np.frombuffer(audio_data, dtype=np.int16).astype(np.float32) / 32768.0
 
-            generate_kwargs = {}
+            generate_kwargs = {"max_new_tokens": 440}
             if language:
                 generate_kwargs["language"] = language
 
             result = self.pipeline(
                 {"raw": audio_np, "sampling_rate": sample_rate},
+                chunk_length_s=30,
+                batch_size=1,
+                return_timestamps=True,
                 generate_kwargs=generate_kwargs,
             )
 

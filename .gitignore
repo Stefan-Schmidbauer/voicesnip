@@ -59,6 +59,9 @@ docs/
 # Planning files
 .planning/
 
+# Local workflow notes
+DEV-WORKFLOW.md
+
 # Blog assets (drafts, images, article files)
 blog/
 fix-ssl-cert.sh

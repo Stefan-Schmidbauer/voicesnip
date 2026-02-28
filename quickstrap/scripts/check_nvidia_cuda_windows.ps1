@@ -1,4 +1,4 @@
-# VoiceSnip Windows NVIDIA CUDA Check
+# Ancroo Voice Windows NVIDIA CUDA Check
 # Verifies NVIDIA drivers and CUDA availability for GPU-accelerated transcription
 
 $ErrorActionPreference = "Stop"

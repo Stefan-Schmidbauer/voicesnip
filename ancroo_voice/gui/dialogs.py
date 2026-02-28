@@ -75,7 +75,7 @@ def show_about_dialog(parent):
 
     # Create About dialog window
     about_window = ctk.CTkToplevel(parent)
-    about_window.title("About VoiceSnip")
+    about_window.title("About Ancroo Voice")
     about_window.geometry(f"{scaled_width}x{scaled_height}+{x}+{y}")
     about_window.resizable(False, False)
     about_window.transient(parent)
@@ -90,7 +90,7 @@ def show_about_dialog(parent):
 
         # Logo
         try:
-            png_path = get_resource_path(os.path.join("assets", "icons", "app", "voicesnip_icon.png"))
+            png_path = get_resource_path(os.path.join("assets", "icons", "app", "ancroo-voice_icon.png"))
             if os.path.exists(png_path):
                 logo_image = ctk.CTkImage(
                     light_image=Image.open(png_path),
@@ -106,7 +106,7 @@ def show_about_dialog(parent):
         # App title
         ctk.CTkLabel(
             main_frame,
-            text="VoiceSnip",
+            text="Ancroo Voice",
             font=ctk.CTkFont(size=28, weight="bold")
         ).pack(pady=(0, 5))
 

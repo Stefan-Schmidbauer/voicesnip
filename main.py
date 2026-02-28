@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-VoiceSnip - Push-to-Talk Speech-to-Text
+Ancroo Voice - Push-to-Talk Speech-to-Text
 
 Simple GUI for selecting microphone, language, provider, and hotkey.
 Press and hold your configured hotkey (default: Ctrl+Space) to record audio.
@@ -18,7 +18,7 @@ Features:
 
 Copyright (c) Stefan Schmidbauer
 License: MIT License
-GitHub: https://github.com/Stefan-Schmidbauer/voicesnip
+GitHub: https://github.com/Stefan-Schmidbauer/ancroo-voice
 """
 
 import os
@@ -28,16 +28,16 @@ from tkinter import messagebox
 
 from dotenv import load_dotenv
 
-from voicesnip.gui.config_manager import load_installation_config
-from voicesnip.gui.main_window import VoiceSnipGUI
+from ancroo_voice.gui.config_manager import load_installation_config
+from ancroo_voice.gui.main_window import AncrooVoiceGUI
 
 
 def load_config_file():
-    """Load configuration from .env or voicesnip.ini (Windows-friendly).
+    """Load configuration from .env or ancroo-voice.ini (Windows-friendly).
 
     Search order:
     1. .env (standard, Linux default)
-    2. voicesnip.ini (Windows-friendly alternative)
+    2. ancroo-voice.ini (Windows-friendly alternative)
 
     Returns the path of the loaded config file, or None if not found.
     """
@@ -55,7 +55,7 @@ def load_config_file():
         # Running as script
         base_dir = os.path.dirname(os.path.abspath(__file__))
 
-    config_files = ['.env', 'voicesnip.ini']
+    config_files = ['.env', 'ancroo-voice.ini']
 
     for config_file in config_files:
         config_path = os.path.join(base_dir, config_file)
@@ -83,16 +83,16 @@ def main():
         root.withdraw()
         messagebox.showerror(
             "Installation Required",
-            "VoiceSnip is not installed.\n\n"
+            "Ancroo Voice is not installed.\n\n"
             "Please run the installer first:\n"
             "  ./install.py\n\n"
-            "This will configure VoiceSnip for your system."
+            "This will configure Ancroo Voice for your system."
         )
         sys.exit(1)
 
     # Start GUI with installation config
     root = ctk.CTk()
-    app = VoiceSnipGUI(root, installation_config=config)
+    app = AncrooVoiceGUI(root, installation_config=config)
     root.protocol("WM_DELETE_WINDOW", app.on_closing)
 
     try:

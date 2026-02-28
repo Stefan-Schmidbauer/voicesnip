@@ -1,4 +1,4 @@
-# VoiceSnip System Requirements - Basis Profile
+# Ancroo Voice System Requirements - Basis Profile
 # For Debian/Ubuntu systems (apt packages)
 
 # Core Python and build tools

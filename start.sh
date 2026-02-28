@@ -40,7 +40,7 @@ APP_NAME=${APP_NAME:-"Application"}
 START_CMD=${START_CMD:-"python main.py"}
 
 # App name lowercase for config filename
-APP_NAME_LOWER=$(echo "$APP_NAME" | tr '[:upper:]' '[:lower:]')
+APP_NAME_LOWER=$(echo "$APP_NAME" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
 
 # Check if virtual environment exists
 if [ ! -d "venv" ]; then

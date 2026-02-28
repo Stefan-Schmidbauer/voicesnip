@@ -48,7 +48,7 @@ $AppName = Read-IniValue -File "quickstrap/installation_profiles.ini" -Section "
 $StartCmd = Read-IniValue -File "quickstrap/installation_profiles.ini" -Section "metadata" -Key "start_command" -Default "python main.py"
 
 # App name lowercase for config filename
-$AppNameLower = $AppName.ToLower()
+$AppNameLower = $AppName.ToLower().Replace(' ', '-')
 
 # Convert python3 to python for Windows (python3 is not standard on Windows)
 # After venv activation, 'python' should work from venv Scripts folder

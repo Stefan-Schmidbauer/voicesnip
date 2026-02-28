@@ -1,4 +1,4 @@
-# VoiceSnip System Requirements - CUDA Profile
+# Ancroo Voice System Requirements - CUDA Profile
 # For Debian/Ubuntu systems (apt packages)
 
 # Include all basis requirements

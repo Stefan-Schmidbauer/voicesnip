@@ -1,4 +1,4 @@
-# VoiceSnip System Requirements - ROCm Profile
+# Ancroo Voice System Requirements - ROCm Profile
 # For Debian/Ubuntu systems (apt packages)
 
 # Include all basis requirements

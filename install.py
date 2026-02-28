@@ -744,8 +744,8 @@ def write_installation_config(profile_name: str, features: str, app_name: str) -
     config_dir = get_config_dir()
     # No need to create directory - we're in the project directory
 
-    # App-specific config filename (lowercase)
-    config_filename = f"{app_name.lower()}_profile.ini"
+    # App-specific config filename (lowercase, spaces replaced with hyphens)
+    config_filename = f"{app_name.lower().replace(' ', '-')}_profile.ini"
     config_file = config_dir / config_filename
 
     config = ConfigParser()
@@ -972,7 +972,7 @@ Examples:
             sys.exit(1)
 
         # Determine which profile is installed (config in project directory)
-        config_file = get_config_dir() / f'{app_name.lower()}_profile.ini'
+        config_file = get_config_dir() / f"{app_name.lower().replace(' ', '-')}_profile.ini"
 
         if not config_file.exists():
             print_error("Installation profile not found")
@@ -1013,7 +1013,7 @@ Examples:
     # Update mode
     if args.update_python:
         # Determine profile to update (config in project directory)
-        config_file = get_config_dir() / f'{app_name.lower()}_profile.ini'
+        config_file = get_config_dir() / f"{app_name.lower().replace(' ', '-')}_profile.ini"
 
         if not config_file.exists():
             print_error("Installation profile not found")

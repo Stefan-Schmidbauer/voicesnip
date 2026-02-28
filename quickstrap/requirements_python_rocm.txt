@@ -1,4 +1,4 @@
-# VoiceSnip Python Requirements - ROCm Profile
+# Ancroo Voice Python Requirements - ROCm Profile
 # Full-featured: Deepgram (cloud) + Whisper (local CPU + AMD GPU via ROCm)
 
 # Base requirements

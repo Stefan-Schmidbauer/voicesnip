@@ -1,4 +1,4 @@
-# VoiceSnip Python Requirements - Basis Profile
+# Ancroo Voice Python Requirements - Basis Profile
 # Deepgram (cloud) + Whisper Local CPU transcription
 
 numpy>=1.20.0

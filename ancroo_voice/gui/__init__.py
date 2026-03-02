@@ -1,3 +1,0 @@
-"""
-Ancroo Voice GUI components
-"""

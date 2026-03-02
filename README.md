@@ -1,10 +1,8 @@
-# Ancroo Voice - Push-to-Talk Speech-to-Text
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+# VoiceSnip - Push-to-Talk Speech-to-Text
 
 Push-to-Talk Speech-to-Text for Linux and Windows. Hold a hotkey, speak, release - text appears at your cursor.
 
-![Ancroo Voice GUI](ancroo-voice.png)
+![VoiceSnip GUI](voicesnip.png)
 
 ## Features
 
@@ -24,8 +22,8 @@ Download the latest release for your platform:
 
 | Platform    | Download                                                                                  |
 | ----------- | ----------------------------------------------------------------------------------------- |
-| **Windows** | [AncrooVoice-Windows.zip](https://github.com/Stefan-Schmidbauer/ancroo-voice/releases/latest)  |
-| **Linux**   | [AncrooVoice-Linux.tar.gz](https://github.com/Stefan-Schmidbauer/ancroo-voice/releases/latest) |
+| **Windows** | [VoiceSnip-Windows.zip](https://github.com/Stefan-Schmidbauer/voicesnip/releases/latest)  |
+| **Linux**   | [VoiceSnip-Linux.tar.gz](https://github.com/Stefan-Schmidbauer/voicesnip/releases/latest) |
 
 These builds include local transcription (Whisper CPU), STT Server (Fixed/Dynamic Model), and Deepgram Cloud support. GPU acceleration (CUDA) is also available if CUDA is installed on your system.
 
@@ -39,7 +37,7 @@ These builds include local transcription (Whisper CPU), STT Server (Fixed/Dynami
 
 ```
 1. Extract ZIP
-2. Run AncrooVoice.exe
+2. Run VoiceSnip.exe
 ```
 
 > **Note:** Windows may show an "Unknown publisher" warning. Click **"More info"** → **"Run anyway"**. This is normal for unsigned open-source software.
@@ -47,14 +45,14 @@ These builds include local transcription (Whisper CPU), STT Server (Fixed/Dynami
 **Linux:**
 
 ```bash
-tar -xzf AncrooVoice-Linux.tar.gz
-chmod +x AncrooVoice-Linux.AppImage
-./AncrooVoice-Linux.AppImage
+tar -xzf VoiceSnip-Linux.tar.gz
+chmod +x VoiceSnip-Linux.AppImage
+./VoiceSnip-Linux.AppImage
 ```
 
 ### 2. Configure (Optional)
 
-For **Deepgram Cloud**, **STT Server (Model Selection)**, or **STT Server (Fixed Model)**, edit `ancroo-voice.ini`:
+For **Deepgram Cloud**, **STT Server (Model Selection)**, or **STT Server (Fixed Model)**, edit `voicesnip.ini`:
 
 ```ini
 DEEPGRAM_API_KEY=your_api_key_here
@@ -81,7 +79,7 @@ STT_FIXED_ENDPOINT=http://your-server:8000/v1/audio/transcriptions
 
 ## Wayland Support
 
-Ancroo Voice works on both X11 and Wayland, but with different workflows due to Wayland's security model.
+VoiceSnip works on both X11 and Wayland, but with different workflows due to Wayland's security model.
 
 ### X11 (Full Support)
 
@@ -90,9 +88,9 @@ Ancroo Voice works on both X11 and Wayland, but with different workflows due to 
 
 ### Wayland (GUI-Based Recording)
 
-Wayland blocks global keyboard hooks for security reasons. Ancroo Voice provides an alternative workflow:
+Wayland blocks global keyboard hooks for security reasons. VoiceSnip provides an alternative workflow:
 
-1. **Click "Start"** to activate Ancroo Voice
+1. **Click "Start"** to activate VoiceSnip
 2. **Click "Start Recording"** button in the GUI (instead of hotkey)
 3. Speak your text
 4. **Click "Stop Recording"** (or click the button again)
@@ -119,8 +117,8 @@ Wayland blocks global keyboard hooks for security reasons. Ancroo Voice provides
 ### Install
 
 ```bash
-git clone https://github.com/Stefan-Schmidbauer/ancroo-voice.git
-cd ancroo-voice
+git clone https://github.com/Stefan-Schmidbauer/voicesnip.git
+cd voicesnip
 ./install.py           # Linux
 py install.py          # Windows
 ```
@@ -165,21 +163,21 @@ When using `install.py --profile rocm`, PyTorch ROCm is installed automatically.
 
 ## STT Server (Model Selection)
 
-For teams or multi-device setups, you can run a central STT server and connect multiple Ancroo Voice clients to it. This allows sharing a single GPU across your network while keeping all data on your own infrastructure.
+For teams or multi-device setups, you can run a central STT server and connect multiple VoiceSnip clients to it. This allows sharing a single GPU across your network while keeping all data on your own infrastructure.
 
 This provider works with any OpenAI-compatible STT server that exposes `/v1/audio/transcriptions` and `/v1/models`. The client selects the model — available models are queried from the server automatically and can be changed in the GUI.
 
 Compatible servers include [Speaches](https://speaches.ai) (NVIDIA CUDA / CPU), [whisper-asr-webservice](https://github.com/ahmetoner/whisper-asr-webservice), and similar.
 
-Configure Ancroo Voice by setting `STT_DYNAMIC_ENDPOINT` and `STT_DYNAMIC_MODEL` in `ancroo-voice.ini` to point to your server.
+Configure VoiceSnip by setting `STT_DYNAMIC_ENDPOINT` and `STT_DYNAMIC_MODEL` in `voicesnip.ini` to point to your server.
 
 ## STT Server (Fixed Model)
 
-This provider connects to any OpenAI-compatible STT server where the model is configured on the server itself — Ancroo Voice sends audio and receives text without selecting a model.
+This provider connects to any OpenAI-compatible STT server where the model is configured on the server itself — VoiceSnip sends audio and receives text without selecting a model.
 
 Compatible servers include [faster-whisper-server](https://github.com/fedirz/faster-whisper-server) (NVIDIA CUDA / CPU) and [whisper-rocm](https://github.com/Stefan-Schmidbauer/modular-ai-stack) for AMD GPU servers (same OpenAI-compatible API).
 
-Configure Ancroo Voice by setting `STT_FIXED_ENDPOINT` in `ancroo-voice.ini`. No model selection is needed in the GUI (the dropdown shows "N/A").
+Configure VoiceSnip by setting `STT_FIXED_ENDPOINT` in `voicesnip.ini`. No model selection is needed in the GUI (the dropdown shows "N/A").
 
 ## Whisper Models
 
@@ -198,9 +196,9 @@ Models download automatically on first use.
 
 | File                    | Location                | Purpose              |
 | ----------------------- | ----------------------- | -------------------- |
-| `ancroo-voice.ini`         | Installation dir        | API keys             |
-| `ancroo-voice_config.json` | Installation dir        | GUI settings         |
-| `ancroo-voice_profile.ini` | Installation dir        | Installation profile |
+| `voicesnip.ini`         | Installation dir        | API keys             |
+| `voicesnip_config.json` | Installation dir        | GUI settings         |
+| `voicesnip_profile.ini` | Installation dir        | Installation profile |
 | Whisper models          | `~/.cache/huggingface/` | Downloaded models    |
 
 ## Advanced Configuration
@@ -225,26 +223,18 @@ Models download automatically on first use.
 
 ## Provider Architecture (Developer Reference)
 
-Ancroo Voice uses a generic, self-describing provider registry. Adding a new STT provider requires no changes to the GUI code. See [docs/PROVIDERS.md](docs/PROVIDERS.md) for the full developer guide.
-
-## Contributing
-
-Contributions are welcome! Feel free to open an [issue](https://github.com/Stefan-Schmidbauer/ancroo-voice/issues) or submit a pull request.
-
-## Security
-
-To report a security vulnerability, please use [GitHub's private vulnerability reporting](https://github.com/Stefan-Schmidbauer/ancroo-voice/security/advisories/new) instead of opening a public issue.
+VoiceSnip uses a generic, self-describing provider registry. Adding a new STT provider requires no changes to the GUI code. See [docs/PROVIDERS.md](docs/PROVIDERS.md) for the full developer guide.
 
 ## License
 
-MIT — see [LICENSE](LICENSE). The Ancroo name and anchor logo are not covered by this license and remain the property of the author.
+MIT License - see LICENSE file.
 
 **Third-Party:** OpenAI Whisper (MIT), Deepgram API, NVIDIA CUDA, AMD ROCm
 
 ## Author
 
-**Stefan Schmidbauer** — [GitHub](https://github.com/Stefan-Schmidbauer)
+Stefan Schmidbauer
 
 ---
 
-Built with the help of AI ([Claude](https://claude.ai) by Anthropic).
+_Developed with AI assistance (Claude/Anthropic)_

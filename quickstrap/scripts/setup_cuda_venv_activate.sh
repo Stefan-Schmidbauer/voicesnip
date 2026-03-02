@@ -43,7 +43,7 @@ fi
 # Append LD_LIBRARY_PATH export to venv/bin/activate
 cat >> "$ACTIVATE_FILE" << EOF
 
-# CUDA Library Path (added by Ancroo Voice installer)
+# CUDA Library Path (added by VoiceSnip installer)
 # Set LD_LIBRARY_PATH to include CUDA libraries for CTranslate2/Faster-Whisper
 export LD_LIBRARY_PATH="${NVIDIA_BASE}/cudnn/lib:${NVIDIA_BASE}/cublas/lib:\${LD_LIBRARY_PATH}"
 EOF

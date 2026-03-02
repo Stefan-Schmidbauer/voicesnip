@@ -43,7 +43,7 @@ def insert_text(text):
         print(f"Error inserting text: {e}")
     except FileNotFoundError:
         if sys.platform == 'win32':
-            print("Error: pynput not available. Please reinstall Ancroo Voice.")
+            print("Error: pynput not available. Please reinstall VoiceSnip.")
         else:
             print("xdotool not found. Please install: sudo apt install xdotool")
     except Exception as e:

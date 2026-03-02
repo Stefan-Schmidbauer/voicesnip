@@ -1,5 +1,5 @@
 """
-Ancroo Voice Main GUI Window
+VoiceSnip Main GUI Window
 
 Main application window with device selection, provider configuration,
 and control buttons. Uses CustomTkinter for a modern look.
@@ -22,7 +22,7 @@ from ..constants import (
     LANGUAGE_NAMES,
     is_wayland,
 )
-from ..core import AncrooVoiceCore
+from ..core import VoiceSnipCore
 from ..hotkey_manager import format_hotkey
 from .config_manager import load_config, save_config
 from .device_manager import populate_devices
@@ -129,12 +129,12 @@ def find_cuda_dlls():
     return cudnn_found, cublas_found, {'cudnn': cudnn_path, 'cublas': cublas_path}
 
 
-class AncrooVoiceGUI:
-    """CustomTkinter GUI for Ancroo Voice"""
+class VoiceSnipGUI:
+    """CustomTkinter GUI for VoiceSnip"""
 
     def __init__(self, root, installation_config):
         self.root = root
-        self.root.title("Ancroo Voice")
+        self.root.title("VoiceSnip")
 
         self.core = None
         self.listener = None
@@ -258,7 +258,7 @@ class AncrooVoiceGUI:
             self.provider_combo.set(providers[0])
         else:
             messagebox.showerror("Configuration Error",
-                               "No providers available. Please reinstall Ancroo Voice.")
+                               "No providers available. Please reinstall VoiceSnip.")
             sys.exit(1)
         self.provider_combo.grid(row=1, column=1, sticky="ew", pady=6, padx=(10, 0))
 
@@ -621,7 +621,7 @@ class AncrooVoiceGUI:
     def start_hotkey_recording(self):
         """Start recording a new hotkey"""
         if self.is_active:
-            messagebox.showwarning("Warning", "Please stop Ancroo Voice before changing the hotkey.")
+            messagebox.showwarning("Warning", "Please stop VoiceSnip before changing the hotkey.")
             return
 
         if self.hotkey_recording:
@@ -676,12 +676,12 @@ class AncrooVoiceGUI:
         self.recorded_keys = set()
 
     def start(self):
-        """Start Ancroo Voice"""
+        """Start VoiceSnip"""
         # Show Wayland info on first start
         if self.is_wayland and not self.config.get('wayland_info_shown', False):
             messagebox.showinfo(
                 "Wayland Detected",
-                "Ancroo Voice detected that you are running Wayland.\n\n"
+                "VoiceSnip detected that you are running Wayland.\n\n"
                 "Global hotkeys do not work under Wayland due to security restrictions.\n\n"
                 "Please use the 'Start Recording' button in the GUI to record audio.\n"
                 "Enable 'Auto-copy to clipboard' to automatically copy transcriptions."
@@ -794,7 +794,7 @@ class AncrooVoiceGUI:
             self.update_status(f"Initializing {provider_name} provider...")
             self.root.update()
 
-            self.core = AncrooVoiceCore(
+            self.core = VoiceSnipCore(
                 device_id=device_id,
                 language=language,
                 sample_rate=sample_rate,
@@ -873,7 +873,7 @@ class AncrooVoiceGUI:
             self.is_active = False
 
     def stop(self):
-        """Stop Ancroo Voice"""
+        """Stop VoiceSnip"""
         if self.listener:
             self.listener.stop()
             self.listener = None

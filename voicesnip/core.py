@@ -1,5 +1,5 @@
 """
-Ancroo Voice Core
+VoiceSnip Core
 
 Core functionality orchestrating audio recording, transcription,
 and hotkey management.
@@ -14,7 +14,7 @@ from .hotkey_manager import HotkeyManager
 from .text_inserter import insert_text
 
 
-class AncrooVoiceCore:
+class VoiceSnipCore:
     """Core functionality for audio recording and transcription"""
 
     def __init__(self, device_id=None, language='de', sample_rate=16000, hotkey=DEFAULT_HOTKEY,

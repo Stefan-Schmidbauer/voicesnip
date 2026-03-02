@@ -2,8 +2,8 @@
 .env
 
 # User-specific config files (generated at runtime)
-ancroo-voice_config.json
-ancroo-voice_profile.ini
+voicesnip_config.json
+voicesnip_profile.ini
 
 # Python
 __pycache__/

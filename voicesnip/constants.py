@@ -1,5 +1,5 @@
 """
-Ancroo Voice Constants
+VoiceSnip Constants
 
 All application-wide constants including audio configuration
 and keyboard mappings.
@@ -29,7 +29,7 @@ def get_platform_config_dir():
             # Regular PyInstaller: use directory of the executable
             return Path(sys.executable).parent
     else:
-        # Normal Python: use project root (parent of ancroo_voice package)
+        # Normal Python: use project root (parent of voicesnip package)
         return Path(__file__).parent.parent
 
 # Audio Configuration
@@ -41,7 +41,7 @@ DTYPE = "int16"
 COMMON_SAMPLE_RATES = [16000, 44100, 48000, 22050, 8000]
 
 # Application name (used for config filenames)
-APP_NAME = "ancroo-voice"
+APP_NAME = "voicesnip"
 
 # Configuration paths (in project directory for portability)
 CONFIG_DIR = get_platform_config_dir()
@@ -49,7 +49,7 @@ CONFIG_FILE = CONFIG_DIR / f'{APP_NAME}_config.json'
 PROFILE_FILE = CONFIG_DIR / f'{APP_NAME}_profile.ini'
 
 # GitHub URL
-GITHUB_URL = "https://github.com/Stefan-Schmidbauer/ancroo-voice"
+GITHUB_URL = "https://github.com/Stefan-Schmidbauer/voicesnip"
 
 # Key mapping constants for hotkey parsing
 KEY_MAP = {

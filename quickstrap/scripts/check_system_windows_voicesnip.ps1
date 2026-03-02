@@ -1,9 +1,9 @@
-# Ancroo Voice Windows System Check
-# Verifies Python version and optional components for Ancroo Voice installation
+# VoiceSnip Windows System Check
+# Verifies Python version and optional components for VoiceSnip installation
 
 $ErrorActionPreference = "SilentlyContinue"
 
-Write-Host "Checking Ancroo Voice system requirements on Windows..." -ForegroundColor Cyan
+Write-Host "Checking VoiceSnip system requirements on Windows..." -ForegroundColor Cyan
 Write-Host ""
 
 $installed = @()

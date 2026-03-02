@@ -1,4 +1,4 @@
-# Ancroo Voice Python Requirements - CUDA Profile
+# VoiceSnip Python Requirements - CUDA Profile
 # Full-featured: Deepgram (cloud) + Whisper (local CPU/GPU)
 
 # Base requirements

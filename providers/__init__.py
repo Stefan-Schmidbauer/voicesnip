@@ -1,6 +1,8 @@
 """
 Provider registry for Speech-to-Text providers.
 
+Local-execution only: CUDA and ROCm GPU backends.
+
 To add a new provider:
 1. Create a new file in this directory (e.g., openai.py)
 2. Implement STTProvider abstract base class
@@ -10,22 +12,12 @@ To add a new provider:
 
 from typing import List, Dict, Any, Optional
 from .base import STTProvider
-from .deepgram import DeepgramProvider
 from .whisper import WhisperProvider
-from .stt_server_dynamic import SttServerDynamicProvider
-from .stt_server_fixed import SttServerFixedProvider
 from .whisper_rocm import WhisperROCmProvider
 
 
-# Self-describing provider registry
+# Self-describing provider registry (local execution only)
 PROVIDER_REGISTRY: List[Dict[str, Any]] = [
-    {
-        'key': 'whisper-local-cpu',
-        'class': WhisperProvider,
-        'display_name': 'Whisper Local CPU (Free)',
-        'config_key': 'whisper',
-        'features': ['whisper'],
-    },
     {
         'key': 'whisper-local-gpu',
         'class': WhisperProvider,
@@ -40,27 +32,6 @@ PROVIDER_REGISTRY: List[Dict[str, Any]] = [
         'config_key': 'whisper',
         'features': ['whisper', 'rocm'],
     },
-    {
-        'key': 'stt-server-fixed',
-        'class': SttServerFixedProvider,
-        'display_name': 'STT Server (Fixed Model)',
-        'config_key': 'stt-fixed',
-        'features': ['stt-fixed'],
-    },
-    {
-        'key': 'stt-server-dynamic',
-        'class': SttServerDynamicProvider,
-        'display_name': 'STT Server (Model Selection)',
-        'config_key': 'stt-dynamic',
-        'features': ['stt-dynamic'],
-    },
-    {
-        'key': 'deepgram-cloud',
-        'class': DeepgramProvider,
-        'display_name': 'Deepgram Cloud (API Key required)',
-        'config_key': 'deepgram',
-        'features': ['deepgram'],
-    },
 ]
 
 
@@ -68,7 +39,7 @@ def get_providers_for_features(features: List[str]) -> List[Dict[str, Any]]:
     """Return registry entries whose required features are all present in the given feature list.
 
     Args:
-        features: List of enabled feature strings (e.g. ['whisper', 'deepgram', 'cuda'])
+        features: List of enabled feature strings (e.g. ['whisper', 'cuda'])
 
     Returns:
         List of matching registry entry dicts
@@ -84,7 +55,7 @@ def get_registry_entry(key: str) -> Optional[Dict[str, Any]]:
     """Return the registry entry for the given provider key.
 
     Args:
-        key: Provider key (e.g. 'whisper-local-cpu', 'stt-server-dynamic')
+        key: Provider key (e.g. 'whisper-local-gpu', 'whisper-local-rocm')
 
     Returns:
         Registry entry dict or None if not found
@@ -100,7 +71,7 @@ def create_provider(name: str, **config) -> STTProvider:
     Factory method to create provider instance.
 
     Args:
-        name: Provider key (e.g. 'whisper-local-cpu', 'stt-server-dynamic', 'stt-server-fixed')
+        name: Provider key (e.g. 'whisper-local-gpu', 'whisper-local-rocm')
         **config: Provider-specific configuration
 
     Returns:
@@ -115,9 +86,8 @@ def create_provider(name: str, **config) -> STTProvider:
         raise ValueError(f"Unknown provider '{name}'. Available: {available}")
 
     # Extract device info from provider name for Whisper
-    if name.lower().startswith('whisper-local-'):
-        device = 'cuda' if 'gpu' in name.lower() else 'cpu'
-        config['device'] = device
+    if name.lower() == 'whisper-local-gpu':
+        config['device'] = 'cuda'
 
     return entry['class'](**config)
 
@@ -125,10 +95,7 @@ def create_provider(name: str, **config) -> STTProvider:
 # Export public API
 __all__ = [
     'STTProvider',
-    'DeepgramProvider',
     'WhisperProvider',
-    'SttServerDynamicProvider',
-    'SttServerFixedProvider',
     'WhisperROCmProvider',
     'PROVIDER_REGISTRY',
     'get_providers_for_features',

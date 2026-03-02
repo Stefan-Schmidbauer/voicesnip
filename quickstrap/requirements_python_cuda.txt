@@ -1,5 +1,5 @@
 # VoiceSnip Python Requirements - CUDA Profile
-# Full-featured: Deepgram (cloud) + Whisper (local CPU/GPU)
+# Whisper local with NVIDIA GPU acceleration
 
 # Base requirements
 numpy>=1.20.0

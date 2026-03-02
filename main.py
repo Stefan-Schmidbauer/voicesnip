@@ -7,12 +7,12 @@ Press and hold your configured hotkey (default: Ctrl+Space) to record audio.
 Release to transcribe and insert text into the active application.
 
 Speech-to-Text Providers:
-- Whisper (Local, Free): Local processing using Faster Whisper
-- Deepgram (Cloud): Cloud API with punctuation and smart formatting
+- Whisper Local GPU (CUDA): Local processing using Faster Whisper with NVIDIA GPU
+- Whisper Local GPU (ROCm): Local processing using Whisper with AMD GPU
 
 Features:
 - Configurable hotkey (e.g., Ctrl+Space, Alt+R, Ctrl+Shift+V)
-- Multiple STT provider support (Whisper, Deepgram)
+- Local-only STT with CUDA and ROCm GPU backends
 - Automatic terminal detection for better paste support
 - Settings persistence
 
@@ -33,35 +33,16 @@ from voicesnip.gui.main_window import VoiceSnipGUI
 
 
 def load_config_file():
-    """Load configuration from .env or voicesnip.ini (Windows-friendly).
-
-    Search order:
-    1. .env (standard, Linux default)
-    2. voicesnip.ini (Windows-friendly alternative)
+    """Load configuration from .env file.
 
     Returns the path of the loaded config file, or None if not found.
     """
-    # Get the directory where the executable/script is located
-    if getattr(sys, 'frozen', False):
-        # Check if running as AppImage (Linux)
-        appimage_path = os.environ.get('APPIMAGE')
-        if appimage_path:
-            # AppImage: use directory containing the .AppImage file
-            base_dir = os.path.dirname(appimage_path)
-        else:
-            # Regular PyInstaller: use directory of the executable
-            base_dir = os.path.dirname(sys.executable)
-    else:
-        # Running as script
-        base_dir = os.path.dirname(os.path.abspath(__file__))
+    base_dir = os.path.dirname(os.path.abspath(__file__))
 
-    config_files = ['.env', 'voicesnip.ini']
-
-    for config_file in config_files:
-        config_path = os.path.join(base_dir, config_file)
-        if os.path.exists(config_path):
-            load_dotenv(config_path)
-            return config_path
+    config_path = os.path.join(base_dir, '.env')
+    if os.path.exists(config_path):
+        load_dotenv(config_path)
+        return config_path
 
     # Fallback: try default load_dotenv behavior (searches parent dirs)
     load_dotenv()

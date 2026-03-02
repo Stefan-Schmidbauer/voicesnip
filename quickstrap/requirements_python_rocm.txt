@@ -1,5 +1,5 @@
 # VoiceSnip Python Requirements - ROCm Profile
-# Full-featured: Deepgram (cloud) + Whisper (local CPU + AMD GPU via ROCm)
+# Whisper local with AMD GPU acceleration via ROCm
 
 # Base requirements
 numpy>=1.20.0

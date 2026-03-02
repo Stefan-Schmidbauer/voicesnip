@@ -8,7 +8,6 @@ and control buttons. Uses CustomTkinter for a modern look.
 import os
 import sys
 import glob
-import platform
 import customtkinter as ctk
 from tkinter import messagebox
 from pathlib import Path
@@ -34,21 +33,15 @@ ctk.set_default_color_theme("blue")  # "blue", "green", "dark-blue"
 
 
 def get_resource_path(relative_path: str) -> str:
-    """Get absolute path to resource, works for dev and PyInstaller builds."""
-    if hasattr(sys, '_MEIPASS'):
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
-        base_path = sys._MEIPASS
-    else:
-        # Running in normal Python environment
-        base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    """Get absolute path to resource."""
+    base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     return os.path.join(base_path, relative_path)
 
 
-def find_cuda_dlls():
+def find_cuda_libs():
     """
-    Check if required CUDA libraries are available.
-    Windows: Search for DLLs in PATH and standard NVIDIA installation paths
-    Linux: Search for .so files in LD_LIBRARY_PATH and standard locations
+    Check if required CUDA libraries are available on Linux.
+    Searches for .so files in LD_LIBRARY_PATH and standard locations.
 
     Returns:
         tuple: (cudnn_found, cublas_found, details_dict)
@@ -58,67 +51,26 @@ def find_cuda_dlls():
     cudnn_path = None
     cublas_path = None
 
-    if platform.system() == 'Windows':
-        # Windows: Search in PATH and standard NVIDIA installation directories
-        search_dirs = os.environ.get('PATH', '').split(os.pathsep)
-
-        # Add standard NVIDIA CUDA Toolkit paths (prefer CUDA 12.x)
-        cuda_base = r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA'
-        if os.path.isdir(cuda_base):
-            # Find all CUDA versions, prefer 12.x
-            cuda_versions = sorted(glob.glob(os.path.join(cuda_base, 'v12.*')), reverse=True)
-            cuda_versions += sorted(glob.glob(os.path.join(cuda_base, 'v*')), reverse=True)
-            for cuda_dir in cuda_versions:
-                bin_dir = os.path.join(cuda_dir, 'bin')
-                if os.path.isdir(bin_dir) and bin_dir not in search_dirs:
-                    search_dirs.append(bin_dir)
-                # Also check bin/x64 subdirectory
-                bin_x64_dir = os.path.join(cuda_dir, 'bin', 'x64')
-                if os.path.isdir(bin_x64_dir) and bin_x64_dir not in search_dirs:
-                    search_dirs.append(bin_x64_dir)
-
-        # Add standard NVIDIA cuDNN paths (prefer 12.x)
-        cudnn_base = r'C:\Program Files\NVIDIA\CUDNN'
-        if os.path.isdir(cudnn_base):
-            # Find all cuDNN versions
-            for cudnn_version_dir in glob.glob(os.path.join(cudnn_base, 'v*')):
-                # Check for CUDA 12.x subdirectories first
-                cuda12_dirs = sorted(glob.glob(os.path.join(cudnn_version_dir, 'bin', '12.*', 'x64')), reverse=True)
-                for bin_dir in cuda12_dirs:
-                    if os.path.isdir(bin_dir) and bin_dir not in search_dirs:
-                        search_dirs.append(bin_dir)
-                # Also check other CUDA versions
-                other_dirs = sorted(glob.glob(os.path.join(cudnn_version_dir, 'bin', '*', 'x64')), reverse=True)
-                for bin_dir in other_dirs:
-                    if os.path.isdir(bin_dir) and bin_dir not in search_dirs:
-                        search_dirs.append(bin_dir)
-
-        cudnn_pattern = 'cudnn64_*.dll'
-        cublas_pattern = 'cublas64_*.dll'
-    else:
-        # Linux: Search in LD_LIBRARY_PATH and standard locations
-        search_dirs = os.environ.get('LD_LIBRARY_PATH', '').split(os.pathsep)
-        search_dirs.extend([
-            '/usr/lib/x86_64-linux-gnu',
-            '/usr/local/cuda/lib64',
-            '/usr/lib64',
-            '/usr/local/lib',
-        ])
-        cudnn_pattern = 'libcudnn.so*'
-        cublas_pattern = 'libcublas.so*'
+    search_dirs = os.environ.get('LD_LIBRARY_PATH', '').split(os.pathsep)
+    search_dirs.extend([
+        '/usr/lib/x86_64-linux-gnu',
+        '/usr/local/cuda/lib64',
+        '/usr/lib64',
+        '/usr/local/lib',
+    ])
 
     for search_dir in search_dirs:
         if not search_dir or not os.path.isdir(search_dir):
             continue
 
         if not cudnn_found:
-            matches = glob.glob(os.path.join(search_dir, cudnn_pattern))
+            matches = glob.glob(os.path.join(search_dir, 'libcudnn.so*'))
             if matches:
                 cudnn_found = True
                 cudnn_path = matches[0]
 
         if not cublas_found:
-            matches = glob.glob(os.path.join(search_dir, cublas_pattern))
+            matches = glob.glob(os.path.join(search_dir, 'libcublas.so*'))
             if matches:
                 cublas_found = True
                 cublas_path = matches[0]
@@ -528,17 +480,11 @@ class VoiceSnipGUI:
         # Load provider settings
         if 'provider' in self.config:
             provider_config = self.config['provider']
-            selected_provider = provider_config.get('selected', 'whisper-local-cpu')
+            selected_provider = provider_config.get('selected', 'whisper-local-gpu')
 
-            # Legacy support
-            if selected_provider == 'whisper':
-                if 'whisper_device' in self.config:
-                    device = self.config['whisper_device']
-                    selected_provider = 'whisper-local-gpu' if device == 'cuda' else 'whisper-local-cpu'
-                else:
-                    selected_provider = 'whisper-local-cpu'
-            elif selected_provider == 'deepgram':
-                selected_provider = 'deepgram-cloud'
+            # Legacy support: map old provider names to current ones
+            if selected_provider in ('whisper', 'whisper-local-cpu'):
+                selected_provider = 'whisper-local-gpu'
 
             for display_name, internal_name in self.provider_display_to_name.items():
                 if internal_name == selected_provider:
@@ -755,37 +701,26 @@ class VoiceSnipGUI:
 
         # CUDA validation for providers requiring CUDA
         if 'cuda' in entry.get('features', []):
-            cudnn_found, cublas_found, dll_details = find_cuda_dlls()
+            cudnn_found, cublas_found, lib_details = find_cuda_libs()
 
             if not cudnn_found or not cublas_found:
                 missing = []
-                if platform.system() == 'Windows':
-                    if not cudnn_found:
-                        missing.append("cuDNN (cudnn64_*.dll)")
-                    if not cublas_found:
-                        missing.append("cuBLAS (cublas64_*.dll)")
-                    install_hint = (
-                        "To enable GPU acceleration:\n"
-                        "Install CUDA Toolkit 12 + cuDNN from nvidia.com"
-                    )
-                else:
-                    if not cudnn_found:
-                        missing.append("cuDNN (libcudnn.so)")
-                    if not cublas_found:
-                        missing.append("cuBLAS (libcublas.so)")
-                    install_hint = (
-                        "To enable GPU acceleration:\n"
-                        "1. Install CUDA libraries via pip in a venv:\n"
-                        "   pip install nvidia-cudnn-cu12 nvidia-cublas-cu12\n"
-                        "2. Or install CUDA Toolkit system-wide"
-                    )
+                if not cudnn_found:
+                    missing.append("cuDNN (libcudnn.so)")
+                if not cublas_found:
+                    missing.append("cuBLAS (libcublas.so)")
+                install_hint = (
+                    "To enable GPU acceleration:\n"
+                    "1. Install CUDA libraries via pip in a venv:\n"
+                    "   pip install nvidia-cudnn-cu12 nvidia-cublas-cu12\n"
+                    "2. Or install CUDA Toolkit system-wide"
+                )
 
                 messagebox.showerror(
                     "CUDA Libraries Not Found",
                     "Missing CUDA libraries:\n"
                     + "\n".join(f"• {m}" for m in missing) + "\n\n"
-                    + install_hint + "\n\n"
-                    "Alternative: Select 'Whisper Local CPU' instead."
+                    + install_hint
                 )
                 return
 

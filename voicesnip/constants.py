@@ -5,7 +5,6 @@ All application-wide constants including audio configuration
 and keyboard mappings.
 """
 
-import sys
 import os
 from pathlib import Path
 from pynput import keyboard
@@ -15,22 +14,9 @@ def get_platform_config_dir():
     """Get project directory for configuration files.
 
     Config files are stored in the project directory for portability.
-    For PyInstaller builds, this is the directory containing the executable.
-    For AppImage builds, this is the directory containing the AppImage file.
-    For normal Python execution, this is the project root directory.
+    Returns the project root (parent of voicesnip package).
     """
-    if getattr(sys, 'frozen', False):
-        # Check if running as AppImage (Linux)
-        appimage_path = os.environ.get('APPIMAGE')
-        if appimage_path:
-            # AppImage: use directory containing the .AppImage file
-            return Path(appimage_path).parent
-        else:
-            # Regular PyInstaller: use directory of the executable
-            return Path(sys.executable).parent
-    else:
-        # Normal Python: use project root (parent of voicesnip package)
-        return Path(__file__).parent.parent
+    return Path(__file__).parent.parent
 
 # Audio Configuration
 TARGET_SAMPLE_RATE = 16000
@@ -112,7 +98,7 @@ KEY_NAME_MAP = {
 }
 
 # Language mapping constants
-# Only languages well-supported by both Whisper (all models) and Deepgram
+# Languages well-supported by Whisper
 # Alphabetically sorted by English name, Auto-Detection at the end
 LANGUAGES = [
     ('Dutch', 'nl'),
@@ -143,6 +129,4 @@ def is_wayland():
     This is used to adjust behavior for Wayland limitations
     (global hotkeys don't work under Wayland).
     """
-    if sys.platform == 'win32':
-        return False
     return os.environ.get('XDG_SESSION_TYPE', '').lower() == 'wayland'

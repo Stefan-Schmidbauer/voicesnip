@@ -96,10 +96,6 @@ Settings are saved automatically in the project directory:
 | `voicesnip_config.json` | GUI settings         |
 | `voicesnip_profile.ini` | Installation profile |
 
-## Looking for Server-Based STT?
-
-If you want to connect to a remote STT server (e.g., in a team/Docker setup), check out [Ancroo Voice](https://github.com/Stefan-Schmidbauer/ancroo-voice) — a lightweight binary client for the Ancroo Stack.
-
 ## License
 
 MIT License - see LICENSE file.

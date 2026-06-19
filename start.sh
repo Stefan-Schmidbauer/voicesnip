@@ -39,8 +39,14 @@ fi
 APP_NAME=${APP_NAME:-"Application"}
 START_CMD=${START_CMD:-"python main.py"}
 
-# App name lowercase for config filename
-APP_NAME_LOWER=$(echo "$APP_NAME" | tr '[:upper:]' '[:lower:]')
+# Validate start command
+if [ -z "$START_CMD" ]; then
+    echo "Error: No start command configured in installation_profiles.ini"
+    exit 1
+fi
+
+# App name lowercase for config filename (normalize: spaces and slashes to underscores)
+APP_NAME_LOWER=$(echo "$APP_NAME" | tr '[:upper:]' '[:lower:]' | tr ' /' '__')
 
 # Check if virtual environment exists
 if [ ! -d "venv" ]; then

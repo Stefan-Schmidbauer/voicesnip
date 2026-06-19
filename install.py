@@ -8,56 +8,58 @@ The profile configuration determines available features, requirements, and insta
 
 import sys
 import os
+
+# Check Python version early (must be before other imports)
+if sys.version_info < (3, 6):
+    print("Error: Python 3.6 or higher is required")
+    print(f"Current version: Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")
+    print("\nPlease upgrade Python:")
+    print("  sudo apt install python3")
+    sys.exit(1)
+import re
 import subprocess
 import argparse
 import shutil
+import tempfile
 from pathlib import Path
 from configparser import ConfigParser
 from datetime import datetime
 from typing import List, Tuple, Dict, Optional
 
+# Quickstrap framework version. Kept in lock-step with the git tag on GitHub
+# (tag `v<VERSION>`), so a project can tell exactly which engine it carries.
+# Bumped by maintainers when the engine (this file, start.sh, activate.sh)
+# changes - not by the projects that embed it.
+QUICKSTRAP_VERSION = "1.0.0"
+
+# Default upstream for `--update-framework`. Override with `--source` (a local
+# checkout or an alternate git URL).
+QUICKSTRAP_REPO = "https://github.com/Stefan-Schmidbauer/quickstrap.git"
+
+# Engine files owned by the framework: these are what `--update-framework`
+# refreshes. Everything else under quickstrap/ (installation_profiles.ini,
+# requirements_*, your own scripts) is project-owned and never touched.
+FRAMEWORK_FILES = [
+    "install.py",
+    "start.sh",
+    "quickstrap/activate.sh",
+]
+# Upstream ships its reference docs as README.md; a project that embeds
+# Quickstrap keeps them as README.quickstrap.md so they never collide with the
+# project's own README. (upstream_path, local_path)
+FRAMEWORK_README = ("README.md", "README.quickstrap.md")
+
 
 class Colors:
     """ANSI color codes for terminal output"""
-    # Check if we're on Windows and if ANSI is supported
-    _use_colors = True
-
-    if sys.platform == 'win32':
-        # Try to enable ANSI support on Windows 10+
-        try:
-            import ctypes
-            kernel32 = ctypes.windll.kernel32
-            # Enable VIRTUAL_TERMINAL_PROCESSING for stdout
-            STD_OUTPUT_HANDLE = -11
-            ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
-            handle = kernel32.GetStdHandle(STD_OUTPUT_HANDLE)
-            mode = ctypes.c_ulong()
-            if kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
-                kernel32.SetConsoleMode(handle, mode.value | ENABLE_VIRTUAL_TERMINAL_PROCESSING)
-            else:
-                _use_colors = False
-        except Exception:
-            _use_colors = False
-
-    if _use_colors:
-        HEADER = '\033[95m'
-        OKBLUE = '\033[94m'
-        OKCYAN = '\033[96m'
-        OKGREEN = '\033[92m'
-        WARNING = '\033[93m'
-        FAIL = '\033[91m'
-        ENDC = '\033[0m'
-        BOLD = '\033[1m'
-    else:
-        # No colors on unsupported terminals
-        HEADER = ''
-        OKBLUE = ''
-        OKCYAN = ''
-        OKGREEN = ''
-        WARNING = ''
-        FAIL = ''
-        ENDC = ''
-        BOLD = ''
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
 
 
 def print_header(text: str):
@@ -88,10 +90,7 @@ def print_info(text: str):
 
 
 def get_venv_paths(venv_path: Path) -> Tuple[Path, Path]:
-    """Get platform-appropriate paths for venv executables.
-
-    On Windows, venv uses 'Scripts' folder with .exe extensions.
-    On Linux/macOS, venv uses 'bin' folder without extensions.
+    """Get paths for venv executables.
 
     Args:
         venv_path: Path to the virtual environment directory
@@ -99,13 +98,8 @@ def get_venv_paths(venv_path: Path) -> Tuple[Path, Path]:
     Returns:
         Tuple of (pip_path, python_path)
     """
-    if sys.platform == 'win32':
-        pip_exe = venv_path / 'Scripts' / 'pip.exe'
-        python_exe = venv_path / 'Scripts' / 'python.exe'
-    else:
-        pip_exe = venv_path / 'bin' / 'pip'
-        python_exe = venv_path / 'bin' / 'python'
-
+    pip_exe = venv_path / 'bin' / 'pip'
+    python_exe = venv_path / 'bin' / 'python'
     return pip_exe, python_exe
 
 
@@ -126,15 +120,30 @@ def get_platform_name() -> str:
     """Get normalized platform name.
 
     Returns:
-        'linux' on Linux/macOS, 'windows' on Windows
+        'linux'
     """
-    return 'windows' if sys.platform == 'win32' else 'linux'
+    return 'linux'
+
+
+def safe_app_name(app_name: str) -> str:
+    """Normalize an app name for use in filenames.
+
+    Lowercases and replaces spaces and slashes with underscores, matching the
+    convention used for the per-installation config file.
+
+    Args:
+        app_name: Application display name
+
+    Returns:
+        Filename-safe app name
+    """
+    return app_name.lower().replace(' ', '_').replace('/', '_').replace('\\', '_')
 
 
 def resolve_platform_config(config: Dict, key: str, required: bool = False) -> Optional[str]:
     """Resolve platform-specific or generic config value.
 
-    Tries platform-specific key first (e.g., 'start_command_linux' or 'start_command_windows'),
+    Tries platform-specific key first (e.g., 'start_command_linux'),
     then falls back to generic key (e.g., 'start_command').
 
     Args:
@@ -145,12 +154,10 @@ def resolve_platform_config(config: Dict, key: str, required: bool = False) -> O
     Returns:
         Resolved value or None if not found
     """
-    platform = get_platform_name()
-
-    # Try platform-specific key first
-    platform_key = f"{key}_{platform}"
-    if platform_key in config and config[platform_key].strip():
-        return config[platform_key].strip()
+    # Try linux-specific key first
+    linux_key = f"{key}_linux"
+    if linux_key in config and config[linux_key].strip():
+        return config[linux_key].strip()
 
     # Fall back to generic key
     if key in config and config[key].strip():
@@ -158,7 +165,7 @@ def resolve_platform_config(config: Dict, key: str, required: bool = False) -> O
 
     # Not found
     if required:
-        print_error(f"Required configuration key '{key}' not found (tried '{platform_key}' and '{key}')")
+        print_error(f"Required configuration key '{key}' not found (tried '{linux_key}' and '{key}')")
 
     return None
 
@@ -172,18 +179,13 @@ def validate_platform_support(metadata: Dict) -> bool:
     Returns:
         True if current platform is supported, False otherwise
     """
-    supported = metadata.get('supported_platforms', 'linux,windows').strip()
+    supported = metadata.get('supported_platforms', 'linux').strip()
 
     # Parse supported platforms
     supported_list = [p.strip().lower() for p in supported.split(',') if p.strip()]
 
-    # Get current platform
-    current_platform = get_platform_name()
-
-    # Check if current platform is supported
-    if current_platform not in supported_list:
-        platform_display = 'Windows' if current_platform == 'windows' else 'Linux'
-        print_error(f"This application does not support {platform_display}")
+    if 'linux' not in supported_list:
+        print_error("This application does not support Linux")
         print()
         print_info(f"Supported platforms: {', '.join(supported_list)}")
         print()
@@ -205,7 +207,7 @@ def read_profiles(profile_file: str = 'quickstrap/installation_profiles.ini') ->
         sys.exit(1)
 
     config = ConfigParser()
-    config.read(profile_file)
+    config.read(profile_file, encoding='utf-8')
 
     profiles = {}
     for section in config.sections():
@@ -219,60 +221,6 @@ def read_profiles(profile_file: str = 'quickstrap/installation_profiles.ini') ->
         metadata = dict(config['metadata'])
 
     return profiles, metadata
-
-
-def run_windows_system_check(script_path: str) -> Tuple[List[str], List[str]]:
-    """Run PowerShell system check script on Windows.
-
-    Executes a PowerShell script that checks for required system software
-    and returns JSON with installed/missing lists.
-
-    Args:
-        script_path: Path to PowerShell script
-
-    Returns:
-        Tuple of (installed_software, missing_software)
-    """
-    if not Path(script_path).exists():
-        print_error(f"System check script not found: {script_path}")
-        return [], []
-
-    print_info(f"Running Windows system check: {script_path}")
-
-    try:
-        # Run PowerShell script with ExecutionPolicy Bypass
-        result = subprocess.run(
-            ['powershell', '-ExecutionPolicy', 'Bypass', '-File', script_path],
-            capture_output=True,
-            text=True,
-            timeout=30
-        )
-
-        if result.returncode != 0:
-            print_error("System check script failed")
-            if result.stderr:
-                print_error(f"Error: {result.stderr}")
-            return [], []
-
-        # Parse JSON output
-        import json
-        try:
-            data = json.loads(result.stdout.strip())
-            installed = data.get('installed', [])
-            missing = data.get('missing', [])
-            return installed, missing
-        except json.JSONDecodeError as e:
-            print_error(f"Failed to parse system check output: {e}")
-            print_info("Script output:")
-            print(result.stdout)
-            return [], []
-
-    except subprocess.TimeoutExpired:
-        print_error("System check script timed out (>30s)")
-        return [], []
-    except Exception as e:
-        print_error(f"Failed to run system check script: {e}")
-        return [], []
 
 
 def check_system_packages_linux(package_file: str) -> Tuple[List[str], List[str]]:
@@ -292,7 +240,7 @@ def check_system_packages_linux(package_file: str) -> Tuple[List[str], List[str]
 
     # Read package list
     packages = []
-    with open(package_file, 'r') as f:
+    with open(package_file, 'r', encoding='utf-8') as f:
         for line in f:
             line = line.strip()
             # Skip empty lines and comments
@@ -331,10 +279,7 @@ def check_system_packages_linux(package_file: str) -> Tuple[List[str], List[str]
 
 
 def check_system_requirements(profile: Dict) -> Tuple[List[str], List[str]]:
-    """Check system requirements based on platform.
-
-    On Linux: Check APT/DEB packages from system_requirements_linux file
-    On Windows: Run PowerShell check script from system_check_script_windows
+    """Check system requirements (APT/DEB packages).
 
     Args:
         profile: Profile configuration dictionary
@@ -342,23 +287,11 @@ def check_system_requirements(profile: Dict) -> Tuple[List[str], List[str]]:
     Returns:
         Tuple of (installed, missing)
     """
-    platform = get_platform_name()
-
-    if platform == 'linux':
-        # Linux: check APT packages
-        req_file = resolve_platform_config(profile, 'system_requirements')
-        if not req_file:
-            print_warning("No system requirements file specified for Linux")
-            return [], []
-        return check_system_packages_linux(req_file)
-    else:
-        # Windows: run PowerShell check script
-        check_script = resolve_platform_config(profile, 'system_check_script')
-        if not check_script:
-            print_warning("No system check script specified for Windows")
-            print_info("Skipping system requirements check")
-            return [], []
-        return run_windows_system_check(check_script)
+    req_file = resolve_platform_config(profile, 'system_requirements')
+    if not req_file:
+        print_warning("No system requirements file specified")
+        return [], []
+    return check_system_packages_linux(req_file)
 
 
 def setup_venv(force: bool = False) -> Path:
@@ -372,9 +305,12 @@ def setup_venv(force: bool = False) -> Path:
     """
     venv_path = Path('venv')
 
+    if force and venv_path.exists():
+        print_info("Removing existing venv...")
+        shutil.rmtree(venv_path)
+
     def _create_venv():
         """Create a new virtual environment, exit on failure."""
-        print_info("Creating virtual environment...")
         try:
             subprocess.run(
                 [sys.executable, '-m', 'venv', 'venv'],
@@ -392,11 +328,8 @@ def setup_venv(force: bool = False) -> Path:
             print_error(f"Unexpected error creating virtual environment: {e}")
             sys.exit(1)
 
-    if force and venv_path.exists():
-        print_info("Removing existing venv...")
-        shutil.rmtree(venv_path)
-
     if not venv_path.exists():
+        print_info("Creating virtual environment...")
         _create_venv()
     else:
         # Verify the venv is valid by checking for critical files
@@ -531,8 +464,7 @@ def install_python_packages(venv_path: Path, requirements_file: str) -> bool:
         print_info("Try running with --rebuild-venv flag to recreate it")
         return False
 
-    platform_display = "Windows" if get_platform_name() == 'windows' else "Linux"
-    print_info(f"Installing Python packages for {platform_display} from {requirements_file}...")
+    print_info(f"Installing Python packages from {requirements_file}...")
     print_info("This may take several minutes...")
 
     try:
@@ -565,6 +497,21 @@ def install_python_packages(venv_path: Path, requirements_file: str) -> bool:
             return False
 
         print_success("Python packages installed successfully")
+
+        # Generate frozen requirements for reproducibility
+        try:
+            freeze_result = subprocess.run(
+                [str(pip_exe), 'freeze'],
+                capture_output=True,
+                text=True
+            )
+            if freeze_result.returncode == 0 and freeze_result.stdout:
+                frozen_path = Path('requirements_frozen.txt')
+                frozen_path.write_text(freeze_result.stdout, encoding='utf-8')
+                print_info(f"Frozen requirements saved to {frozen_path}")
+        except Exception:
+            print_warning("Could not generate frozen requirements file")
+
         return True
 
     except Exception as e:
@@ -586,6 +533,7 @@ def validate_profile_files(profile: Dict) -> List[str]:
         List of missing files with their context (empty if all files exist)
     """
     missing = []
+    platform = get_platform_name()
 
     # Check python requirements (platform-specific or generic)
     python_req = resolve_platform_config(profile, 'python_requirements')
@@ -593,20 +541,12 @@ def validate_profile_files(profile: Dict) -> List[str]:
         missing.append(f"{python_req} (python_requirements)")
     elif not python_req:
         # No python requirements found at all
-        platform = get_platform_name()
         missing.append(f"python_requirements_{platform} or python_requirements (not specified)")
 
-    # Check system requirements (platform-specific)
-    platform = get_platform_name()
-    if platform == 'linux':
-        sys_req = resolve_platform_config(profile, 'system_requirements')
-        if sys_req and not Path(sys_req).exists():
-            missing.append(f"{sys_req} (system_requirements_linux)")
-    else:
-        # Windows: check for system check script
-        check_script = resolve_platform_config(profile, 'system_check_script')
-        if check_script and not Path(check_script).exists():
-            missing.append(f"{check_script} (system_check_script_windows)")
+    # Check system requirements
+    sys_req = resolve_platform_config(profile, 'system_requirements')
+    if sys_req and not Path(sys_req).exists():
+        missing.append(f"{sys_req} (system_requirements)")
 
     # Check post_install_scripts (platform-specific)
     scripts = resolve_platform_config(profile, 'post_install_scripts')
@@ -624,26 +564,27 @@ def validate_profile_files(profile: Dict) -> List[str]:
             if not Path(script_path).exists():
                 missing.append(f"{script_path} (pre_install_scripts_{platform})")
 
+    # Check uninstall_scripts (platform-specific)
+    scripts_uninstall = resolve_platform_config(profile, 'uninstall_scripts')
+    if scripts_uninstall:
+        script_list = [s.strip() for s in scripts_uninstall.split(',') if s.strip()]
+        for script_path in script_list:
+            if not Path(script_path).exists():
+                missing.append(f"{script_path} (uninstall_scripts_{platform})")
+
     return missing
 
 
-def run_bash_script(script_path: str, env: Optional[Dict] = None) -> Optional[subprocess.CompletedProcess]:
-    """Run a bash script with cross-platform handling.
-
-    On Windows, bash scripts are skipped since bash is typically not available.
-    On Linux/macOS, scripts are executed with bash.
+def run_bash_script(script_path: str, env: Optional[Dict] = None) -> subprocess.CompletedProcess:
+    """Run a bash script.
 
     Args:
         script_path: Path to the bash script to run
         env: Optional environment variables for the script
 
     Returns:
-        CompletedProcess result on Linux/macOS, None on Windows (script skipped)
+        CompletedProcess result
     """
-    if sys.platform == 'win32':
-        # On Windows, bash is not typically available
-        return None
-
     return subprocess.run(
         ['bash', script_path],
         env=env,
@@ -652,12 +593,102 @@ def run_bash_script(script_path: str, env: Optional[Dict] = None) -> Optional[su
     )
 
 
+def build_script_env(venv_path: Path, app_name: str) -> Dict[str, str]:
+    """Build the environment passed to lifecycle (post-install / uninstall) scripts.
+
+    Activates the virtual environment and exposes Quickstrap metadata so that
+    install and uninstall scripts run with identical context. This symmetry lets
+    uninstall scripts reconstruct deterministic paths (e.g. desktop entries derived
+    from the app name) without any recorded state.
+
+    Args:
+        venv_path: Path to the virtual environment
+        app_name: Application name from metadata
+
+    Returns:
+        Environment dictionary for subprocess execution
+    """
+    env = os.environ.copy()
+    env['VIRTUAL_ENV'] = str(venv_path)
+    pip_exe, _ = get_venv_paths(venv_path)
+    env['PATH'] = f"{pip_exe.parent}:{env['PATH']}"
+    env['QUICKSTRAP_APP_NAME'] = app_name
+    env['QUICKSTRAP_CONFIG_DIR'] = str(get_config_dir())  # Project directory
+    return env
+
+
+def state_file_path(app_name: str) -> Path:
+    """Compute the shared per-installation state file path.
+
+    All lifecycle scripts of one installation share a single state file, stored
+    alongside the installation config in the project directory. It is passed via
+    QUICKSTRAP_STATE_FILE so that an install script and its matching uninstall
+    script - which necessarily have different filenames - resolve to the same
+    file. Quickstrap never reads or writes it itself; install scripts may record
+    runtime artifacts (chosen ports, generated paths) there for the uninstall
+    side to read back, and a script that records nothing simply ignores it.
+
+    Args:
+        app_name: Application name from metadata
+
+    Returns:
+        Path to the shared state file (may not exist)
+    """
+    return get_config_dir() / f"{safe_app_name(app_name)}.state"
+
+
+def run_lifecycle_scripts(scripts: str, venv_path: Path, app_name: str,
+                          abort_on_failure: bool) -> Tuple[bool, List[str]]:
+    """Run a comma-separated list of lifecycle scripts with Quickstrap context.
+
+    Used for both post-install scripts (abort_on_failure=True) and uninstall
+    scripts (abort_on_failure=False, so a failing hook does not leave a
+    half-removed installation behind). Each script receives the shared script
+    environment plus QUICKSTRAP_STATE_FILE pointing at the installation's shared
+    state file.
+
+    Args:
+        scripts: Comma-separated list of script paths
+        venv_path: Path to the virtual environment
+        app_name: Application name from metadata
+        abort_on_failure: If True, stop and return on the first failing script
+
+    Returns:
+        Tuple of (success, failed_scripts). success is False if any script
+        failed. failed_scripts lists the paths that failed.
+    """
+    script_list = [s.strip() for s in scripts.split(',') if s.strip()]
+    env = build_script_env(venv_path, app_name)
+    env['QUICKSTRAP_STATE_FILE'] = str(state_file_path(app_name))
+
+    failed_scripts: List[str] = []
+
+    for script_path in script_list:
+        if not Path(script_path).exists():
+            print_warning(f"Script not found: {script_path}")
+            continue
+
+        print_info(f"Running script: {script_path}")
+
+        result = run_bash_script(script_path, env=env)
+
+        # Display output
+        if result.stdout:
+            print(result.stdout)
+        if result.stderr:
+            print(result.stderr, file=sys.stderr)
+
+        if result.returncode != 0:
+            print_error(f"Script failed: {script_path}")
+            failed_scripts.append(script_path)
+            if abort_on_failure:
+                return False, failed_scripts
+
+    return len(failed_scripts) == 0, failed_scripts
+
+
 def run_pre_install_scripts(scripts: str, profile_name: str) -> bool:
     """Run pre-installation scripts.
-
-    On Windows, bash scripts are skipped with a warning since bash is
-    typically not available. The function returns True to allow
-    installation to continue.
 
     Args:
         scripts: Comma-separated list of scripts to run
@@ -672,17 +703,6 @@ def run_pre_install_scripts(scripts: str, profile_name: str) -> bool:
         return True
 
     print_header("Step 2: Pre-Installation Scripts")
-
-    # On Windows, skip bash scripts with a warning
-    if sys.platform == 'win32':
-        print_warning("Bash script execution is not available on Windows")
-        print_info(f"The following {len(script_list)} pre-install script(s) will be skipped:")
-        for script_path in script_list:
-            print(f"    - {script_path}")
-        print_info("On Windows, you may need to manually perform any pre-installation steps")
-        print_info("Skipping pre-install scripts...")
-        print_success("Pre-install scripts skipped on Windows")
-        return True
 
     failed_scripts = []
 
@@ -744,8 +764,8 @@ def write_installation_config(profile_name: str, features: str, app_name: str) -
     config_dir = get_config_dir()
     # No need to create directory - we're in the project directory
 
-    # App-specific config filename (lowercase)
-    config_filename = f"{app_name.lower()}_profile.ini"
+    # App-specific config filename (lowercase, spaces replaced with underscores)
+    config_filename = f"{safe_app_name(app_name)}_profile.ini"
     config_file = config_dir / config_filename
 
     config = ConfigParser()
@@ -755,7 +775,7 @@ def write_installation_config(profile_name: str, features: str, app_name: str) -
         'install_date': datetime.now().isoformat(),
     }
 
-    with open(config_file, 'w') as f:
+    with open(config_file, 'w', encoding='utf-8') as f:
         config.write(f)
 
     print_success("Installation config written")
@@ -794,6 +814,255 @@ def show_profile_menu(profiles: Dict) -> str:
             sys.exit(0)
 
 
+def run_uninstall(profiles: Dict, metadata: Dict, args) -> None:
+    """Uninstall the application.
+
+    Removes the project-owned parts that the installer created (the virtual
+    environment and generated files) automatically, runs any profile-defined
+    uninstall scripts to undo out-of-tree side effects, and lists the system
+    packages that were required so the user can remove them manually.
+
+    Args:
+        profiles: Available profiles from installation_profiles.ini
+        metadata: Global metadata from installation_profiles.ini
+        args: Parsed command-line arguments (uses dry_run, yes)
+    """
+    app_name = metadata.get('app_name', 'Application')
+    print_header(f"{app_name} Uninstall")
+
+    config_dir = get_config_dir()
+    config_file = config_dir / f'{safe_app_name(app_name)}_profile.ini'
+
+    # Determine the installed profile (if the install left a record behind)
+    profile = None
+    if config_file.exists():
+        config = ConfigParser()
+        config.read(config_file)
+        installed_profile_name = config.get('installation', 'profile', fallback=None)
+        if installed_profile_name and installed_profile_name in profiles:
+            profile = profiles[installed_profile_name]
+            print_info(f"Installed profile: {profile['name']}")
+        else:
+            print_warning(
+                f"Recorded profile '{installed_profile_name}' is not defined in "
+                "installation_profiles.ini; uninstall scripts cannot be run."
+            )
+    else:
+        print_warning("Installation config not found - performing best-effort cleanup")
+        print_info("Uninstall scripts cannot be run without a recorded installation")
+
+    # Collect project-owned files/directories to remove
+    venv_path = Path('venv')
+    local_paths: List[Path] = []
+    if venv_path.exists():
+        local_paths.append(venv_path)
+    for name in ('requirements_frozen.txt', 'install.log'):
+        p = config_dir / name
+        if p.exists():
+            local_paths.append(p)
+    if config_file.exists():
+        local_paths.append(config_file)
+    # Shared state file written during installation
+    state_file = state_file_path(app_name)
+    if state_file.exists():
+        local_paths.append(state_file)
+
+    # Resolve uninstall scripts and system packages from the profile
+    uninstall_scripts = resolve_platform_config(profile, 'uninstall_scripts') if profile else None
+    still_installed: List[str] = []
+    if profile:
+        sys_req = resolve_platform_config(profile, 'system_requirements')
+        if sys_req and Path(sys_req).exists():
+            still_installed, _ = check_system_packages_linux(sys_req)
+
+    # Show the plan
+    print()
+    print_info("The following will be removed:")
+    if local_paths:
+        for p in local_paths:
+            print(f"  - {p}")
+    else:
+        print("  (no project files found)")
+    if uninstall_scripts:
+        print()
+        print_info("Uninstall scripts to run:")
+        for s in [s.strip() for s in uninstall_scripts.split(',') if s.strip()]:
+            print(f"  - {s}")
+
+    # Dry run stops here
+    if args.dry_run:
+        print()
+        print_header("Dry Run - No Changes Made")
+        if still_installed:
+            print_info("System packages that were required (not removed):")
+            print(f"  {', '.join(still_installed)}")
+        return
+
+    # Confirmation
+    if not args.yes:
+        print()
+        try:
+            response = input("Proceed with uninstall? [y/N]: ").strip().lower()
+        except (KeyboardInterrupt, EOFError):
+            print()
+            print_info("Uninstall aborted by user")
+            return
+        if response != 'y':
+            print_info("Uninstall aborted by user")
+            return
+
+    failed_scripts: List[str] = []
+
+    # Run uninstall scripts first (while venv still exists), never abort midway
+    if uninstall_scripts:
+        print_header("Running Uninstall Scripts")
+        _, failed_scripts = run_lifecycle_scripts(
+            uninstall_scripts, venv_path, app_name, abort_on_failure=False
+        )
+
+    # Remove project-owned files
+    print_header("Removing Project Files")
+    for p in local_paths:
+        try:
+            if p.is_dir():
+                shutil.rmtree(p)
+            else:
+                p.unlink()
+            print_success(f"Removed {p}")
+        except Exception as e:
+            print_error(f"Could not remove {p}: {e}")
+
+    # System packages: list only, never remove automatically
+    if still_installed:
+        print()
+        print_info(f"The following system packages were required by {app_name}:")
+        print(f"  {', '.join(still_installed)}")
+        print_info("If no other software needs them, remove with:")
+        print(f"\n  {Colors.BOLD}sudo apt remove {' '.join(still_installed)}{Colors.ENDC}\n")
+
+    # Report outcome
+    print()
+    if failed_scripts:
+        print_header("Uninstall Completed with Warnings")
+        print_warning("The following uninstall scripts failed:")
+        for s in failed_scripts:
+            print(f"  - {s}")
+        print_info("You may need to clean up their side effects manually")
+    else:
+        print_header("Uninstall Complete!")
+        print_success(f"{app_name} has been uninstalled")
+
+
+def parse_framework_version(text: str) -> Optional[str]:
+    """Extract QUICKSTRAP_VERSION from the text of an install.py file."""
+    match = re.search(
+        r'''^QUICKSTRAP_VERSION\s*=\s*["']([^"']+)["']''', text, re.MULTILINE
+    )
+    return match.group(1) if match else None
+
+
+def fetch_upstream(source: str, dest: Path) -> Path:
+    """Make the upstream Quickstrap tree available locally and return its root.
+
+    A local path is used in place (no copy); anything else is treated as a git
+    URL and shallow-cloned into dest. Raises on failure so the caller can report.
+    """
+    local = Path(source).expanduser()
+    if local.exists():
+        return local
+    print_info(f"Cloning {source} ...")
+    subprocess.run(['git', 'clone', '--depth', '1', source, str(dest)], check=True)
+    return dest
+
+
+def update_framework(args) -> None:
+    """Refresh the Quickstrap engine files from upstream.
+
+    Updates only framework-owned files (FRAMEWORK_FILES + the reference README);
+    project-owned files (installation_profiles.ini, requirements_*, your own
+    scripts) are never touched. Reuses --dry-run (show plan only) and --yes
+    (skip confirmation). The running install.py may overwrite itself safely - it
+    is already loaded into memory.
+    """
+    print_header("Quickstrap Framework Update")
+    source = args.source or QUICKSTRAP_REPO
+
+    with tempfile.TemporaryDirectory(prefix="quickstrap-update-") as tmp:
+        try:
+            tree = fetch_upstream(source, Path(tmp) / "upstream")
+        except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+            print_error(f"Could not fetch upstream from {source}: {exc}")
+            print_info("Pass a local checkout with --source /path/to/quickstrap")
+            sys.exit(1)
+
+        upstream_install = tree / "install.py"
+        if not upstream_install.exists():
+            print_error(f"No install.py found in upstream source: {tree}")
+            sys.exit(1)
+
+        upstream_version = parse_framework_version(
+            upstream_install.read_text(encoding="utf-8")
+        ) or "unknown"
+        print_info(f"Installed framework version: {QUICKSTRAP_VERSION}")
+        print_info(f"Upstream framework version:  {upstream_version}")
+
+        # Resolve which framework files actually exist upstream and locally.
+        # install.py/start.sh are mandatory and always refreshed; optional
+        # helpers (e.g. activate.sh) are only refreshed if the project already
+        # has them, so an update never surprises a project with new files.
+        mandatory = {"install.py", "start.sh"}
+        planned: List[Tuple[Path, Path]] = []
+        for rel in FRAMEWORK_FILES:
+            src = tree / rel
+            dst = Path(rel)
+            if src.exists() and (dst.exists() or rel in mandatory):
+                planned.append((src, dst))
+        up_readme = tree / FRAMEWORK_README[0]
+        local_readme = Path(FRAMEWORK_README[1])
+        # Only refresh the reference README if this project keeps one
+        if up_readme.exists() and local_readme.exists():
+            planned.append((up_readme, local_readme))
+
+        print()
+        print_info("Framework files to update:")
+        for _, dst in planned:
+            print(f"  - {dst}")
+        print_info("Left untouched: installation_profiles.ini, requirements_*, your own scripts/")
+
+        if args.dry_run:
+            print()
+            print_header("Dry Run - No Changes Made")
+            return
+
+        # Confirmation (skipped with --yes)
+        if not args.yes:
+            if upstream_version == QUICKSTRAP_VERSION:
+                prompt = f"Already on {QUICKSTRAP_VERSION}. Re-copy framework files anyway? [y/N]: "
+            else:
+                prompt = f"Update framework {QUICKSTRAP_VERSION} -> {upstream_version}? [y/N]: "
+            print()
+            try:
+                response = input(prompt).strip().lower()
+            except (KeyboardInterrupt, EOFError):
+                print()
+                print_info("Update aborted by user")
+                return
+            if response != 'y':
+                print_info("Update aborted by user")
+                return
+
+        # copy2 preserves mode bits, so executables stay executable
+        for src, dst in planned:
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+            print_success(f"Updated {dst}")
+
+    print()
+    print_header("Framework Updated")
+    print_success(f"Quickstrap engine now at {upstream_version}")
+    print_info("Review with 'git diff', then run ./install.py --validate")
+
+
 def main():
     """Main installation flow"""
     # Read profiles first to get available choices
@@ -825,7 +1094,19 @@ Examples:
   ./install.py --validate                   # Validate all profiles
   ./install.py --check-update-python        # Check for Python package updates
   ./install.py --update-python              # Update Python packages
+  ./install.py --uninstall --dry-run        # Show what uninstall would remove
+  ./install.py --uninstall                  # Uninstall (asks for confirmation)
+  ./install.py --uninstall --yes            # Uninstall without confirmation
+  ./install.py --version                    # Print the Quickstrap framework version
+  ./install.py --update-framework --dry-run # Show which engine files would update
+  ./install.py --update-framework           # Update the Quickstrap engine from GitHub
         """
+    )
+    parser.add_argument(
+        '--version',
+        action='version',
+        version=f'quickstrap {QUICKSTRAP_VERSION}',
+        help='Print the Quickstrap framework version and exit'
     )
     parser.add_argument(
         '--profile',
@@ -857,8 +1138,38 @@ Examples:
         action='store_true',
         help='Update Python packages in existing virtual environment'
     )
+    parser.add_argument(
+        '--uninstall',
+        action='store_true',
+        help='Uninstall: remove venv, generated files and run uninstall scripts'
+    )
+    parser.add_argument(
+        '--yes',
+        action='store_true',
+        help='Skip confirmation prompts (for --uninstall and --update-framework)'
+    )
+    parser.add_argument(
+        '--update-framework',
+        action='store_true',
+        help='Update the Quickstrap engine files from upstream (project files untouched)'
+    )
+    parser.add_argument(
+        '--source',
+        metavar='PATH_OR_URL',
+        help='Source for --update-framework: a local checkout or git URL (default: official repo)'
+    )
 
     args = parser.parse_args()
+
+    # Update framework mode
+    if args.update_framework:
+        update_framework(args)
+        return
+
+    # Uninstall mode
+    if args.uninstall:
+        run_uninstall(profiles, metadata, args)
+        return
 
     # Validate mode - check all profiles and exit
     if args.validate:
@@ -873,20 +1184,14 @@ Examples:
             required_fields = ['name', 'description', 'features']
             missing_fields = [f for f in required_fields if f not in profile or not profile[f].strip()]
 
-            # Check platform-specific requirements exist
+            # Check requirements exist
             python_req = resolve_platform_config(profile, 'python_requirements')
             if not python_req:
-                missing_fields.append('python_requirements (platform-specific)')
+                missing_fields.append('python_requirements')
 
-            platform = get_platform_name()
-            if platform == 'linux':
-                sys_req = resolve_platform_config(profile, 'system_requirements')
-                if not sys_req:
-                    missing_fields.append('system_requirements_linux')
-            else:
-                sys_check = resolve_platform_config(profile, 'system_check_script')
-                if not sys_check:
-                    missing_fields.append('system_check_script_windows (optional but recommended)')
+            sys_req = resolve_platform_config(profile, 'system_requirements')
+            if not sys_req:
+                missing_fields.append('system_requirements')
 
             if missing_fields:
                 print_error(f"  Missing required fields: {', '.join(missing_fields)}")
@@ -904,16 +1209,20 @@ Examples:
             else:
                 print_success(f"  File references: OK")
 
-            # Check script executability
+            # Check script executability (platform-aware)
             scripts_to_check = []
 
-            scripts_pre = profile.get('pre_install_scripts', '').strip()
+            scripts_pre = resolve_platform_config(profile, 'pre_install_scripts')
             if scripts_pre:
                 scripts_to_check.extend([(s.strip(), 'pre_install') for s in scripts_pre.split(',') if s.strip()])
 
-            scripts_post = profile.get('post_install_scripts', '').strip()
+            scripts_post = resolve_platform_config(profile, 'post_install_scripts')
             if scripts_post:
                 scripts_to_check.extend([(s.strip(), 'post_install') for s in scripts_post.split(',') if s.strip()])
+
+            scripts_uninstall = resolve_platform_config(profile, 'uninstall_scripts')
+            if scripts_uninstall:
+                scripts_to_check.extend([(s.strip(), 'uninstall') for s in scripts_uninstall.split(',') if s.strip()])
 
             non_executable = []
             for script_path, script_type in scripts_to_check:
@@ -972,7 +1281,7 @@ Examples:
             sys.exit(1)
 
         # Determine which profile is installed (config in project directory)
-        config_file = get_config_dir() / f'{app_name.lower()}_profile.ini'
+        config_file = get_config_dir() / f'{safe_app_name(app_name)}_profile.ini'
 
         if not config_file.exists():
             print_error("Installation profile not found")
@@ -1013,7 +1322,7 @@ Examples:
     # Update mode
     if args.update_python:
         # Determine profile to update (config in project directory)
-        config_file = get_config_dir() / f'{app_name.lower()}_profile.ini'
+        config_file = get_config_dir() / f'{safe_app_name(app_name)}_profile.ini'
 
         if not config_file.exists():
             print_error("Installation profile not found")
@@ -1102,24 +1411,16 @@ Examples:
         python_req = resolve_platform_config(profile, 'python_requirements')
         print(f"Python packages file: {python_req}")
 
-        platform = get_platform_name()
-        if platform == 'linux':
-            sys_req = resolve_platform_config(profile, 'system_requirements')
-            print(f"System packages file: {sys_req}")
-        else:
-            sys_check = resolve_platform_config(profile, 'system_check_script')
-            print(f"System check script: {sys_check or '(none)'}")
+        sys_req = resolve_platform_config(profile, 'system_requirements')
+        print(f"System packages file: {sys_req}")
 
         print(f"Features: {profile['features']}")
 
         # Check system packages
         _, missing_system = check_system_requirements(profile)
         if missing_system:
-            if platform == 'linux':
-                print(f"\nMissing system packages: {', '.join(missing_system)}")
-                print(f"Would need to run: sudo apt install {' '.join(missing_system)}")
-            else:
-                print(f"\nMissing system requirements: {', '.join(missing_system)}")
+            print(f"\nMissing system packages: {', '.join(missing_system)}")
+            print(f"Would need to run: sudo apt install {' '.join(missing_system)}")
         else:
             print("\nAll system requirements are met")
 
@@ -1130,8 +1431,6 @@ Examples:
     print_header("Step 1: System Requirements Check")
     installed, missing = check_system_requirements(profile)
 
-    # Show results based on platform
-    platform = get_platform_name()
     if installed:
         print_success(f"{len(installed)} system requirement(s) already installed/available")
 
@@ -1141,12 +1440,9 @@ Examples:
             print(f"  - {item}")
 
         print()
-        if platform == 'linux':
-            print_info("Please install missing system packages with:")
-            print(f"\n  {Colors.BOLD}sudo apt install {' '.join(missing)}{Colors.ENDC}\n")
-            print_info("Then re-run this installer.")
-        else:
-            print_info("Please install missing requirements manually, then re-run this installer.")
+        print_info("Please install missing system packages with:")
+        print(f"\n  {Colors.BOLD}sudo apt install {' '.join(missing)}{Colors.ENDC}\n")
+        print_info("Then re-run this installer.")
         sys.exit(1)
 
     if not installed and not missing:
@@ -1182,52 +1478,12 @@ Examples:
     scripts = resolve_platform_config(profile, 'post_install_scripts')
     if scripts:
         print_header(f"Step {4 + step_offset}: Post-Installation Scripts")
-        script_list = [s.strip() for s in scripts.split(',') if s.strip()]
 
-        platform = get_platform_name()
-        for script_path in script_list:
-            if not Path(script_path).exists():
-                print_warning(f"Post-install script not found: {script_path}")
-                continue
-
-            print_info(f"Running post-install script: {script_path}")
-
-            # Prepare environment with venv activation and Quickstrap metadata
-            env = os.environ.copy()
-            env['VIRTUAL_ENV'] = str(venv_path)
-            pip_exe, _ = get_venv_paths(venv_path)
-            path_sep = ';' if sys.platform == 'win32' else ':'
-            env['PATH'] = f"{pip_exe.parent}{path_sep}{env['PATH']}"
-            env['QUICKSTRAP_APP_NAME'] = app_name
-            env['QUICKSTRAP_CONFIG_DIR'] = str(get_config_dir())  # Project directory
-
-            # Run script based on platform
-            if platform == 'windows':
-                # Run PowerShell script
-                result = subprocess.run(
-                    ['powershell', '-ExecutionPolicy', 'Bypass', '-File', script_path],
-                    env=env,
-                    capture_output=True,
-                    text=True
-                )
-            else:
-                # Run Bash script
-                result = subprocess.run(
-                    ['bash', script_path],
-                    env=env,
-                    capture_output=True,
-                    text=True
-                )
-
-            # Display output
-            if result.stdout:
-                print(result.stdout)
-            if result.stderr:
-                print(result.stderr, file=sys.stderr)
-
-            if result.returncode != 0:
-                print_error(f"Post-install script failed: {script_path}")
-                sys.exit(1)
+        success, _ = run_lifecycle_scripts(
+            scripts, venv_path, app_name, abort_on_failure=True
+        )
+        if not success:
+            sys.exit(1)
 
         print_success("All post-install scripts completed")
 

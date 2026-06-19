@@ -1,0 +1,5 @@
+# VoiceSnip: grant the 'input' group read/write access to /dev/uinput.
+# Needed so ydotool can inject keystrokes under Wayland without root.
+# The same 'input' group membership also grants read access to
+# /dev/input/event* for the evdev-based global hotkey listener.
+KERNEL=="uinput", SUBSYSTEM=="misc", GROUP="input", MODE="0660", OPTIONS+="static_node=uinput"

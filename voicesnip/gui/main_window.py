@@ -564,6 +564,38 @@ class VoiceSnipGUI:
         except Exception:
             pass
 
+    def _create_key_listener(self, on_press, on_release):
+        """Create the global key listener appropriate for the session.
+
+        Uses the evdev backend under Wayland (pynput cannot capture global
+        keys there) and pynput on X11. Both emit pynput key objects, so the
+        callbacks and HotkeyManager logic are identical.
+        """
+        if self.is_wayland:
+            from ..evdev_listener import EvdevKeyListener
+            return EvdevKeyListener(on_press=on_press, on_release=on_release)
+        return keyboard.Listener(on_press=on_press, on_release=on_release)
+
+    def _wayland_input_blocked(self):
+        """Whether the Wayland 'input' group is unusable in this session.
+
+        Shows one consistent warning (same title and icon for both the Start
+        and Set paths) and returns True when the global hotkey cannot work, so
+        the caller can abort before the listener fails with the same message.
+        Returns False when input is ready (or we are not on Wayland).
+        """
+        if not self.is_wayland:
+            return False
+        from ..evdev_listener import input_group_status
+        status, message = input_group_status()
+        if status == 'relogin':
+            messagebox.showwarning("Wayland: re-login required", message)
+            return True
+        if status == 'missing':
+            messagebox.showwarning("Wayland: input permission missing", message)
+            return True
+        return False
+
     def start_hotkey_recording(self):
         """Start recording a new hotkey"""
         if self.is_active:
@@ -573,16 +605,28 @@ class VoiceSnipGUI:
         if self.hotkey_recording:
             return
 
+        # Same Wayland 'input' group check (and same dialog) as Start, so both
+        # buttons report the identical situation instead of a generic error.
+        if self._wayland_input_blocked():
+            return
+
         self.hotkey_recording = True
         self.recorded_keys = set()
         self.record_hotkey_button.configure(text="Setting...", state="disabled")
         self.hotkey_entry.configure(state="disabled")
 
-        self.hotkey_listener = keyboard.Listener(
-            on_press=self.on_hotkey_record_press,
-            on_release=self.on_hotkey_record_release
-        )
-        self.hotkey_listener.start()
+        try:
+            self.hotkey_listener = self._create_key_listener(
+                self.on_hotkey_record_press,
+                self.on_hotkey_record_release
+            )
+            self.hotkey_listener.start()
+        except Exception as e:
+            self.hotkey_recording = False
+            self.hotkey_listener = None
+            self.record_hotkey_button.configure(text="Set", state="normal")
+            self.hotkey_entry.configure(state="normal")
+            messagebox.showerror("Error", f"Could not capture hotkey: {e}")
 
     def on_hotkey_record_press(self, key):
         """Record key presses during hotkey recording"""
@@ -623,14 +667,22 @@ class VoiceSnipGUI:
 
     def start(self):
         """Start VoiceSnip"""
-        # Show Wayland info on first start
+        # Under Wayland the global hotkey needs the 'input' group to be active
+        # in this session. Surface the precise situation: a pending re-login
+        # (group set by the installer but not yet effective) is the usual cause
+        # and is not something the user should fix with a manual usermod.
+        # When the 'input' group is not active the hotkey listener cannot work,
+        # so abort here with the single precise message instead of letting the
+        # listener fail later and report the same thing a second time.
+        if self._wayland_input_blocked():
+            self.update_status("Wayland input not ready")
+            return
         if self.is_wayland and not self.config.get('wayland_info_shown', False):
             messagebox.showinfo(
                 "Wayland Detected",
-                "VoiceSnip detected that you are running Wayland.\n\n"
-                "Global hotkeys do not work under Wayland due to security restrictions.\n\n"
-                "Please use the 'Start Recording' button in the GUI to record audio.\n"
-                "Enable 'Auto-copy to clipboard' to automatically copy transcriptions."
+                "VoiceSnip uses evdev for global hotkeys under Wayland and "
+                "inserts text via clipboard paste (ydotool).\n\n"
+                "Input permissions are handled by the installer."
             )
             self.config['wayland_info_shown'] = True
             save_config(self.config)
@@ -755,11 +807,11 @@ class VoiceSnipGUI:
             self.update_status("Failed to initialize")
             return
 
-        # Start keyboard listener
+        # Start keyboard listener (evdev on Wayland, pynput on X11)
         try:
-            self.listener = keyboard.Listener(
-                on_press=self.core.on_press,
-                on_release=self.core.on_release
+            self.listener = self._create_key_listener(
+                self.core.on_press,
+                self.core.on_release
             )
             self.listener.daemon = True
             self.listener.start()
@@ -796,11 +848,7 @@ class VoiceSnipGUI:
             if self.gui_record_button.winfo_exists():
                 self.gui_record_button.configure(state="normal")
 
-            # Show appropriate status message
-            if self.is_wayland:
-                self.update_status("Active - Use Record button (Wayland)")
-            else:
-                self.update_status("Active - Waiting for hotkey...")
+            self.update_status("Active - Waiting for hotkey...")
         except Exception as e:
             print(f"Warning: GUI widget error during startup: {e}")
             if self.listener:

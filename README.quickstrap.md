@@ -2,7 +2,7 @@
 
 **A lightweight, profile-based installation framework for Python projects**
 
-Quickstrap provides a simple, reusable installation system that handles both Python packages (pip) and system packages (apt/dpkg on Linux), with support for multiple installation profiles and post-install hooks. **Works on both Linux and Windows.**
+Quickstrap provides a simple, reusable installation system that handles both Python packages (pip) and system packages (apt/dpkg), with support for multiple installation profiles, post-install hooks, and a symmetric uninstall.
 
 ## Features
 
@@ -11,9 +11,10 @@ Quickstrap provides a simple, reusable installation system that handles both Pyt
 - **Virtual Environment** - Automatic venv creation and management
 - **Feature Detection** - Applications can detect which features were installed
 - **Post-Install Hooks** - Run custom scripts after installation
-- **Windows EXE Builder** - Create standalone Windows executables with PyInstaller
+- **Symmetric Uninstall** - `--uninstall` removes the venv and generated files, runs your uninstall scripts, and lists system packages to remove
 - **Template-Driven** - No code changes needed, just configure INI files
 - **Copy-and-Go** - Clone, configure, and you're ready to deploy
+- **Versioned Engine** - Each project carries a known framework version (`--version`) and can pull engine updates with `--update-framework`, leaving its own config untouched
 
 ## Quick Start
 
@@ -48,16 +49,9 @@ Quickstrap provides a simple, reusable installation system that handles both Pyt
 
 5. **Install and run:**
 
-   **Linux:**
    ```bash
    ./install.py
    ./start.sh
-   ```
-
-   **Windows:**
-   ```cmd
-   python install.py
-   start.bat
    ```
 
 ![Interactive Installation](quickstrap/quickstrap_i12.png)
@@ -81,7 +75,7 @@ The interactive installation process guides users through profile selection and 
 2. **Configure and install:**
    - Edit `quickstrap/installation_profiles.ini`
    - Add dependencies to `quickstrap/requirements_*.txt`
-   - Run `./install.py` (Linux) or `python install.py` (Windows)
+   - Run `./install.py`
 
 ## Installation Profiles
 
@@ -144,6 +138,8 @@ The configuration is stored in the project directory: `./{app_name}_profile.ini`
 
 Pre-install scripts run **before** the virtual environment is created and packages are installed. This prevents wasting time installing packages when critical requirements are missing (e.g., GPU drivers for CUDA applications).
 
+Because they run before the venv exists, pre-install scripts do **not** receive the `QUICKSTRAP_*` environment variables or `VIRTUAL_ENV` - those are provided to post-install and uninstall scripts only.
+
 Add pre-install scripts to your profile:
 
 ```ini
@@ -159,8 +155,6 @@ pre_install_scripts = quickstrap/scripts/check_nvidia_driver.sh
 2. **Failure Handling**: If a script fails, the user is prompted to continue or abort
 3. **Multiple Scripts**: Comma-separated list, all scripts run in order
 4. **Exit Codes**: Script exit 0 = success, non-zero = failure
-
-**Windows Note:** Pre-install scripts are bash scripts and will be skipped on Windows with a warning message. If you need pre-install checks on Windows, you'll need to perform them manually before running `python install.py`.
 
 ### Example: NVIDIA Driver Verification
 
@@ -197,7 +191,7 @@ When a pre-install script fails:
 
 ```
 Step 2: Pre-Installation Scripts
-ℹ Running pre-install script: quickstrap/scripts/check_nvidia_driver.sh
+[i] Running pre-install script: quickstrap/scripts/check_nvidia_driver.sh
 Error: NVIDIA driver not found (nvidia-smi not available)
 
 Install NVIDIA drivers:
@@ -205,9 +199,9 @@ Install NVIDIA drivers:
   2. Install driver: sudo apt install nvidia-driver-XXX
   3. Reboot system
 
-✗ Pre-install script failed: quickstrap/scripts/check_nvidia_driver.sh
+[X] Pre-install script failed: quickstrap/scripts/check_nvidia_driver.sh
 
-⚠ Warning: Pre-installation scripts failed
+[!] Warning: Pre-installation scripts failed
 Continue anyway? [y/N]: _
 ```
 
@@ -243,20 +237,23 @@ Quickstrap includes template scripts in `quickstrap/scripts/`:
 - `check_file_exists.sh` - Verify required files exist
 - `check_cups_printing.sh` - Verify CUPS printing system
 
+**Uninstall Scripts** (run during `./install.py --uninstall`):
+
+- `uninstall_example.sh` - Template showing how to undo out-of-tree side effects
+
 Simply uncomment and customize these templates for your needs. All templates include extensive examples showing common use cases.
 
 If the script fails, the installation fails.
 
-**Windows Note:** Post-install scripts are bash scripts and will be skipped on Windows with a warning message. If your application requires post-install setup on Windows, you'll need to run these steps manually or create PowerShell equivalents.
-
 ### Environment Variables Available to Scripts
 
-Post-install scripts have access to these environment variables:
+Post-install and uninstall scripts have access to these environment variables:
 
 - `QUICKSTRAP_APP_NAME` - The application name from metadata
 - `QUICKSTRAP_CONFIG_DIR` - Path to the project directory (where config files are stored)
 - `VIRTUAL_ENV` - Path to the virtual environment (e.g., `/path/to/project/venv`)
 - `PATH` - Automatically updated to include the venv's `bin` directory first. This ensures that when your script calls `python`, `pip`, or any installed Python tools, the versions from the virtual environment are used instead of system versions. You can directly use commands like `python script.py` without specifying the full venv path.
+- `QUICKSTRAP_STATE_FILE` - Path to a state file shared by all of this installation's scripts (see Uninstall Scripts below). Install scripts may record runtime artifacts here for the matching uninstall script to read back.
 
 Example usage in a script:
 
@@ -267,64 +264,121 @@ echo "Setting up $QUICKSTRAP_APP_NAME..."
 CONFIG_PATH="$QUICKSTRAP_CONFIG_DIR"
 ```
 
+### Output and Interactive Prompts
+
+Quickstrap **captures** each lifecycle script's stdout/stderr and shows it only
+after the script exits; stdin is not connected to your terminal. Plain `echo`
+output therefore appears delayed, and an interactive prompt (e.g. a `sudo`
+password) hangs silently with no visible prompt.
+
+This matters most for uninstall scripts, whose job is often to undo privileged
+side effects (`sudo rm` in `/etc`, group changes) interactively. To talk to the
+user in real time, route I/O through the controlling terminal `/dev/tty`; when
+there is no terminal (a piped/non-interactive install), print the commands for
+the user to run manually instead of blocking:
+
+```bash
+# Detect a usable terminal (absent when the installer output is piped)
+if { true >/dev/tty; } 2>/dev/null; then TTY=/dev/tty; else TTY=""; fi
+say() { if [ -n "$TTY" ]; then printf '%s\n' "$*" >"$TTY"; else printf '%s\n' "$*"; fi; }
+
+say "About to remove /etc/foo - this needs sudo"
+if [ -n "$TTY" ]; then
+    # run sudo against the terminal so its password prompt is visible and readable
+    sudo rm -f /etc/foo <"$TTY" >"$TTY" 2>&1
+else
+    say "No terminal available - run manually:  sudo rm -f /etc/foo"
+fi
+```
+
+## Uninstall Scripts
+
+Quickstrap can uninstall an application with `./install.py --uninstall`. The
+**project-owned** parts are always removed automatically:
+
+- the `venv/` virtual environment (this also removes every Python package - they
+  live only inside the venv, so there is nothing else to undo)
+- generated files: `<app>_profile.ini`, `requirements_frozen.txt`, `install.log`,
+  and the shared `<app>.state` file
+
+**System packages (apt/dpkg) are never removed automatically** - the installer
+only ever asked you to install them, and other software may depend on them.
+The uninstaller lists the packages that were required and prints a ready-to-use
+`sudo apt remove ...` command so you can decide.
+
+The only thing Quickstrap cannot undo on its own are **out-of-tree side effects**
+of your post-install scripts (desktop entries, databases, config directories).
+For those, define a symmetric `uninstall_scripts` next to your `post_install_scripts`:
+
+```ini
+[profile:standard]
+...
+post_install_scripts = quickstrap/scripts/setup_desktop_entry.sh
+uninstall_scripts = quickstrap/scripts/remove_desktop_entry.sh
+```
+
+Uninstall scripts run with the **same environment** as your post-install scripts,
+so deterministic paths (e.g. a desktop entry derived from `$QUICKSTRAP_APP_NAME`)
+can simply be recomputed and removed - no recorded state needed.
+
+For **non-deterministic** state (a chosen free port, a generated path, a random
+DB name), all scripts of an installation share one state file via
+`$QUICKSTRAP_STATE_FILE` (so the install and uninstall side resolve to the same
+path). Your install script records into it, your uninstall script reads it back:
+
+```bash
+# in your post-install script:
+echo "$generated_db_path" >> "$QUICKSTRAP_STATE_FILE"
+
+# in your uninstall script:
+while IFS= read -r line; do
+    case "$line" in ''|\#*) continue ;; esac   # skip blanks and comments
+    rm -rf "$line"
+done < "$QUICKSTRAP_STATE_FILE"
+```
+
+**State file convention** (recommended, not enforced - Quickstrap never reads the
+file itself): UTF-8, one entry per line, `#` comments and blank lines ignored, and
+by default each line is an absolute path to remove. Scripts that need richer state
+may use their own `key=value` format. A script that records nothing simply ignores
+the variable - no empty files are forced. See `quickstrap/scripts/uninstall_example.sh`.
+
+If an uninstall script fails, Quickstrap warns and continues removing the rest
+(so you are never left with a half-removed installation) and reports the failures
+at the end.
+
+If the installation record (`<app>_profile.ini`) is missing - e.g. after a partial
+or broken install - Quickstrap still removes the project-owned parts it can find
+(best effort) and warns that uninstall scripts cannot be run without it.
+
 ## Usage
 
 ### Interactive Installation
 
-**Linux:**
 ```bash
 ./install.py
-```
-
-**Windows:**
-```powershell
-python install.py
 ```
 
 Presents a menu to choose from available profiles.
 
 ### Direct Profile Installation
 
-**Linux:**
 ```bash
 ./install.py --profile standard
 ```
 
-**Windows:**
-```powershell
-python install.py --profile standard
-```
-
-Installs the specified profile directly.
-
 ### Rebuild Virtual Environment
 
-**Linux:**
 ```bash
 ./install.py --rebuild-venv
 # Or with specific profile:
 ./install.py --profile standard --rebuild-venv
 ```
 
-**Windows:**
-```powershell
-python install.py --rebuild-venv
-# Or with specific profile:
-python install.py --profile standard --rebuild-venv
-```
-
-Deletes and recreates the virtual environment from scratch.
-
 ### Dry Run
 
-**Linux:**
 ```bash
 ./install.py --dry-run
-```
-
-**Windows:**
-```powershell
-python install.py --dry-run
 ```
 
 Shows what would be installed without making changes.
@@ -342,97 +396,73 @@ Validates your profile configuration without installing anything. Checks:
 - Script executability
 - Metadata completeness
 
-Useful before committing configuration changes or when setting up a new project.
-
 ### Update Python Packages
 
-Check for Python package updates:
-
 ```bash
-./install.py --check-update-python
+./install.py --check-update-python  # Check for updates
+./install.py --update-python        # Update packages
 ```
 
-Shows which Python packages have newer versions available.
-
-Update Python packages:
+### Uninstall
 
 ```bash
-./install.py --update-python
+./install.py --uninstall --dry-run  # Show what would be removed, change nothing
+./install.py --uninstall            # Uninstall (asks for confirmation)
+./install.py --uninstall --yes      # Uninstall without confirmation
 ```
 
-Updates all Python packages in the virtual environment to match requirements.
+Removes the virtual environment and generated files, runs any `uninstall_scripts`
+defined for the installed profile, and lists the system packages that were
+required so you can remove them manually. See [Uninstall Scripts](#uninstall-scripts).
+
+### Framework Version
+
+```bash
+./install.py --version   # e.g. "quickstrap 1.0.0"
+```
+
+Quickstrap stamps its engine with a version that is kept **in lock-step with the
+git tag** on GitHub (tag `v<VERSION>`), so a project always knows exactly which
+engine it carries. The version is bumped by Quickstrap maintainers when the
+engine changes - not by the projects that embed it.
+
+### Update the Framework
+
+```bash
+./install.py --update-framework --dry-run   # Show which engine files would change
+./install.py --update-framework             # Update from the official GitHub repo
+./install.py --update-framework --yes       # Update without confirmation
+./install.py --update-framework --source /path/to/quickstrap   # Update from a local checkout
+```
+
+Refreshes only the **framework-owned** engine files - `install.py`, `start.sh`,
+`quickstrap/activate.sh`, and the reference `README.quickstrap.md` (if present).
+Your **project-owned** files are never touched: `installation_profiles.ini`,
+`requirements_*`, and your own `quickstrap/scripts/`. By default the latest
+version is fetched from GitHub (`git clone --depth 1`); `--source` accepts a
+local checkout or an alternate git URL for offline or pre-release updates.
+
+This is the maintainable counterpart to the copy-and-go model: a project pins a
+known engine version and pulls updates deliberately, instead of silently drifting
+from upstream. Review the result with `git diff` and run `./install.py --validate`
+afterwards.
 
 ### Start Application
 
-**Linux:**
 ```bash
 ./start.sh
-```
-
-**Windows:**
-```powershell
-start.bat
-```
-
-Activates the virtual environment and starts your application.
-
-### Start Application with Parameters
-
-**Linux:**
-```bash
-./start.sh [arguments...]
-```
-
-**Windows:**
-```powershell
-start.bat [arguments...]
-```
-
-All arguments are passed to your application. Examples:
-
-**Linux:**
-```bash
 ./start.sh --help              # Show application help
 ./start.sh --config production # Start with production config
 ./start.sh process --verbose   # Run command with options
 ```
 
-**Windows:**
-```powershell
-start.bat --help              # Show application help
-start.bat --config production # Start with production config
-start.bat process --verbose   # Run command with options
-```
-
 ### Developer Mode (Activate Virtual Environment)
 
-To work directly in the virtual environment with environment variables set:
-
-**Linux:**
 ```bash
 source quickstrap/activate.sh
 ```
 
-**Windows:**
-```powershell
-. .\quickstrap\activate.ps1
-```
-
-This activates the venv and sets `QUICKSTRAP_APP_NAME`, `QUICKSTRAP_CONFIG_DIR`, and `QUICKSTRAP_PROJECT_ROOT` environment variables.
-
-This provides:
-
-- Activated virtual environment
-- Quickstrap environment variables (`QUICKSTRAP_APP_NAME`, `QUICKSTRAP_CONFIG_DIR`)
-- Updated `PATH` with venv binaries
-- Persistent activation (use `deactivate` to exit)
-
-This is useful when you want to:
-
-- Run Python commands directly without `./start.sh`
-- Use development tools (pytest, mypy, black, etc.)
-- Debug or explore code interactively
-- Work with multiple terminal sessions
+This activates the venv and sets `QUICKSTRAP_APP_NAME`, `QUICKSTRAP_CONFIG_DIR`, and `QUICKSTRAP_PROJECT_ROOT` environment variables. Use `deactivate` to exit.
 
 ## Configuration Reference
 
@@ -440,12 +470,11 @@ This is useful when you want to:
 
 Global application configuration:
 
-| Field           | Required | Description                                                     |
-| --------------- | -------- | --------------------------------------------------------------- |
-| `app_name`      | Yes      | Display name of your application (also used for config filename)|
-| `config_dir`    | No       | Deprecated - config is now stored in project directory          |
-| `start_command` | Yes      | Command to start your application (e.g., `python3 src/main.py`) |
-| `after_install` | No       | Message displayed after successful installation                 |
+| Field              | Required | Description                                                      |
+| ------------------ | -------- | ---------------------------------------------------------------- |
+| `app_name`         | Yes      | Display name of your application (also used for config filename) |
+| `start_command`    | Yes      | Command to start your application (e.g., `python3 src/main.py`) |
+| `after_install`    | No       | Message displayed after successful installation                  |
 
 ### Profile Section (`[profile:NAME]`)
 
@@ -457,16 +486,16 @@ Installation profile configuration:
 | `description`          | Yes      | Description of what this profile includes                                     |
 | `features`             | Yes      | Comma-separated feature list (used by your app for feature detection)         |
 | `python_requirements`  | Yes      | Path to Python packages file (e.g., `quickstrap/requirements_python.txt`)     |
-| `system_requirements`  | Yes      | Path to system packages file (e.g., `quickstrap/requirements_system.txt`)     |
+| `system_requirements`  | No       | Path to system packages file (e.g., `quickstrap/requirements_system.txt`)     |
 | `pre_install_scripts`  | No       | Comma-separated list of pre-install scripts (run before venv creation)        |
 | `post_install_scripts` | No       | Comma-separated list of post-install scripts (run after package installation) |
+| `uninstall_scripts`    | No       | Comma-separated list of uninstall scripts (run during `--uninstall`)          |
 
 ### Example Configuration
 
 ```ini
 [metadata]
 app_name = My Amazing App
-# config_dir is deprecated - config is stored in project directory
 start_command = python3 src/main.py
 after_install = Start with: ./start.sh
 
@@ -482,38 +511,11 @@ post_install_scripts = quickstrap/scripts/init_database.sh
 
 ## Requirements
 
-### Linux (Debian/Ubuntu)
-
-**Install these system packages:**
+Linux (Debian/Ubuntu-based). Install these system packages:
 
 ```bash
 sudo apt install python3 python3-pip python3-venv
 ```
-
-Required:
-
-- Python 3.6 or higher
-- pip (Python package installer)
-- venv (Virtual environment support)
-- dpkg (Debian package manager - for system package verification)
-
-### Windows
-
-**Requirements:**
-
-- Python 3.6 or higher (download from [python.org](https://www.python.org/downloads/))
-- During Python installation, check "Add Python to PATH"
-- PowerShell (included with Windows)
-
-**PowerShell Execution Policy:**
-
-If you get a "scripts are disabled" error, run PowerShell as Administrator and execute:
-
-```powershell
-Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
-```
-
-**Note on Windows:** System package checking (`dpkg`) is not available on Windows. Quickstrap will skip system package verification and display a list of any required system packages that you may need to install manually.
 
 ## Quickstrap Structure
 
@@ -522,16 +524,13 @@ Example structure:
 ```
 your-project/
 ├── README.quickstrap.md               # Quickstrap documentation (this file)
-├── install.py                         # Quickstrap installer (cross-platform)
-├── start.sh                           # Linux starter script
-├── start.bat                          # Windows starter script (calls start.ps1)
-├── start.ps1                          # Windows PowerShell script (internal)
+├── install.py                         # Quickstrap installer
+├── start.sh                           # Starter script
 ├── quickstrap/                        # Quickstrap configuration directory
 │   ├── installation_profiles.ini      # Your profiles configuration
 │   ├── requirements_python.txt        # Your Python dependencies
-│   ├── requirements_system.txt        # Your system dependencies
-│   ├── activate.sh                    # Linux developer mode activation
-│   ├── activate.ps1                   # Windows developer mode activation
+│   ├── requirements_system.txt        # Your system dependencies (apt)
+│   ├── activate.sh                    # Developer mode activation
 │   └── scripts/                       # Installation scripts (templates)
 │       ├── check_nvidia_driver.sh     # Pre: GPU/CUDA check
 │       ├── check_docker.sh            # Pre: Docker availability check
@@ -541,11 +540,12 @@ your-project/
 │       ├── setup_config_directory.sh  # Post: Config directory setup
 │       ├── setup_desktop_entry.sh     # Post: Desktop integration
 │       ├── check_file_exists.sh       # Post: File verification
-│       └── check_cups_printing.sh     # Post: Printing system check
+│       ├── check_cups_printing.sh     # Post: Printing system check
+│       └── uninstall_example.sh       # Uninstall: undo out-of-tree side effects
 └── venv/                              # Virtual environment (created by install.py)
 ```
 
-**Note:** Quickstrap keeps these items in your project root: `install.py`, `start.sh` (Linux), `start.bat` and `start.ps1` (Windows), and optionally `README.quickstrap.md`. All other files are in the `quickstrap/` subdirectory to minimize conflicts with your project.
+**Note:** Quickstrap keeps `install.py`, `start.sh`, and optionally `README.quickstrap.md` in your project root. All other files are in the `quickstrap/` subdirectory.
 
 ## Why Quickstrap?
 
@@ -560,87 +560,34 @@ Quickstrap provides all of this in a simple, reusable framework that requires no
 
 ## Troubleshooting
 
-### Linux: Scripts Not Executable
+### Scripts Not Executable
 
 ```bash
 chmod +x install.py start.sh
 chmod +x quickstrap/scripts/*.sh
 ```
 
-### Linux: Virtual Environment Issues
+### Virtual Environment Issues
 
 ```bash
-# Rebuild the virtual environment
 ./install.py --rebuild-venv
 ```
 
-### Linux: Missing System Packages
+### Missing System Packages
 
 ```bash
 sudo apt install <package-name>
 ./install.py
 ```
 
-### Windows: PowerShell Execution Policy Error
-
-Use `start.bat` instead of `start.ps1` - it bypasses the execution policy automatically.
-
-If you still need to run PowerShell scripts directly:
-
-```powershell
-# Run as Administrator
-Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
-```
-
-### Windows: Python Not Found
-
-Ensure Python is installed and added to PATH. During installation from [python.org](https://www.python.org/downloads/), check the "Add Python to PATH" option.
-
-To verify Python is in PATH:
-
-```powershell
-python --version
-```
-
-### Windows: Virtual Environment Issues
-
-```powershell
-# Rebuild the virtual environment
-python install.py --rebuild-venv
-```
-
-### Windows: "venv" Module Not Found
-
-Some Python installations don't include the `venv` module. Reinstall Python from [python.org](https://www.python.org/downloads/) ensuring you check all optional features.
-
 ## FAQ
-
-### Supported Platforms
-
-Quickstrap supports **Linux** (Debian/Ubuntu-based) and **Windows** (10/11 with PowerShell).
-
-| Feature | Linux | Windows |
-|---------|-------|---------|
-| Python venv creation | ✓ | ✓ |
-| Python package installation | ✓ | ✓ |
-| Profile selection | ✓ | ✓ |
-| Feature detection | ✓ | ✓ |
-| System package verification | ✓ (dpkg) | ✗ (manual) |
-| Pre/Post-install bash scripts | ✓ | ✗ (skipped) |
-| Config file location | Project directory | Project directory |
 
 ### Adding Python Packages
 
 Edit `quickstrap/requirements_python.txt` and rebuild:
 
-**Linux:**
 ```bash
 ./install.py --rebuild-venv
-```
-
-**Windows:**
-```powershell
-python install.py --rebuild-venv
 ```
 
 ### Pre-Install vs Post-Install Scripts
@@ -648,13 +595,11 @@ python install.py --rebuild-venv
 - **Pre-install**: Run before venv creation (e.g., check GPU drivers)
 - **Post-install**: Run after packages installed (e.g., init database)
 
-**Note for Windows users:** Pre-install and post-install scripts are bash scripts (`.sh`) and will be skipped on Windows. If your application requires these scripts, you'll need to run them manually or create PowerShell equivalents.
-
 ## License
 
 MIT License - see [LICENSE](quickstrap/LICENSE) file for details.
 
-Copyright (c) Stefan Schmidbauer
+Copyright (c) 2025 Stefan Schmidbauer
 
 ## Contributing
 

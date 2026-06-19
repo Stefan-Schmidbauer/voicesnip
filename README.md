@@ -57,21 +57,37 @@ The installer will ask you to choose a profile:
 
 ## Wayland Support
 
-VoiceSnip works on both X11 and Wayland, but with different workflows due to Wayland's security model.
+VoiceSnip provides the same workflow on both X11 and Wayland — hold your hotkey
+anywhere, speak, release, and the text appears at your cursor. The display
+server is detected at runtime; the difference is purely internal.
 
-### X11 (Full Support)
+### X11
 
-- **Global hotkeys work** - Hold Ctrl+Space (or your configured hotkey) anywhere
-- Text is automatically inserted at your cursor via xdotool
+- **Global hotkey** via pynput
+- Text is typed at your cursor via `xdotool`
 
-### Wayland (GUI-Based Recording)
+### Wayland
 
-Wayland blocks global keyboard hooks for security reasons. VoiceSnip provides an alternative:
+Wayland's compositor blocks the usual global keyboard hook and synthetic typing,
+so VoiceSnip uses two lower-level mechanisms instead:
 
-1. Click **"Start Recording"** in the GUI (instead of hotkey)
-2. Speak, then click **"Stop Recording"**
-3. Enable **"Auto-copy to clipboard"** for automatic copying
-4. Switch to your target app and **Ctrl+V** to paste
+- **Global hotkey** by reading `/dev/input/event*` directly (`python-evdev`).
+  This requires your user to be in the **`input`** group.
+- Text is inserted by copying it to the clipboard and pasting with **Ctrl+V**
+  via `ydotool` (which needs access to `/dev/uinput`).
+
+The installer sets both up for you: it adds you to the `input` group and
+installs a udev rule for `/dev/uinput`. **Group changes only take effect after
+the next login**, so log out and back in (or reboot) once after installing,
+then the hotkey works system-wide just like on X11.
+
+> **Clipboard note:** On Wayland, text is inserted by placing it on the
+> clipboard, pasting it, and then restoring your previous clipboard contents.
+> Only the **primary clipboard format** is restored — content that advertises
+> multiple formats at once (e.g. rich text with `text/html` + `text/plain`, or
+> images offering several types) keeps just the primary type; the other formats
+> are dropped. This is a limitation of restoring a clipboard offer with
+> `wl-copy`, which handles one MIME type per entry.
 
 ## Whisper Models
 

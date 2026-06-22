@@ -7,12 +7,13 @@ Press and hold your configured hotkey (default: Ctrl+Space) to record audio.
 Release to transcribe and insert text into the active application.
 
 Speech-to-Text Providers:
+- Whisper Local CPU: Local processing using Faster Whisper on the CPU (no GPU)
 - Whisper Local GPU (CUDA): Local processing using Faster Whisper with NVIDIA GPU
 - Whisper Local GPU (ROCm): Local processing using Whisper with AMD GPU
 
 Features:
 - Configurable hotkey (e.g., Ctrl+Space, Alt+R, Ctrl+Shift+V)
-- Local-only STT with CUDA and ROCm GPU backends
+- Local-only STT with CPU, CUDA and ROCm backends
 - Automatic terminal detection for better paste support
 - Settings persistence
 

@@ -1,7 +1,7 @@
 """
 Provider registry for Speech-to-Text providers.
 
-Local-execution only: CUDA and ROCm GPU backends.
+Local-execution only: CPU, CUDA and ROCm backends.
 
 To add a new provider:
 1. Create a new file in this directory (e.g., openai.py)
@@ -31,6 +31,13 @@ PROVIDER_REGISTRY: List[Dict[str, Any]] = [
         'display_name': 'Whisper Local GPU (Free, ROCm)',
         'config_key': 'whisper',
         'features': ['whisper', 'rocm'],
+    },
+    {
+        'key': 'whisper-local-cpu',
+        'class': WhisperProvider,
+        'display_name': 'Whisper Local CPU (Free)',
+        'config_key': 'whisper',
+        'features': ['whisper'],
     },
 ]
 
@@ -88,6 +95,8 @@ def create_provider(name: str, **config) -> STTProvider:
     # Extract device info from provider name for Whisper
     if name.lower() == 'whisper-local-gpu':
         config['device'] = 'cuda'
+    elif name.lower() == 'whisper-local-cpu':
+        config['device'] = 'cpu'
 
     return entry['class'](**config)
 

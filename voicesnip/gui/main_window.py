@@ -482,8 +482,10 @@ class VoiceSnipGUI:
             provider_config = self.config['provider']
             selected_provider = provider_config.get('selected', 'whisper-local-gpu')
 
-            # Legacy support: map old provider names to current ones
-            if selected_provider in ('whisper', 'whisper-local-cpu'):
+            # Legacy support: map old provider names to current ones.
+            # 'whisper' was the pre-registry name; 'whisper-local-cpu' is now a
+            # real registry key again, so it must NOT be remapped here.
+            if selected_provider == 'whisper':
                 selected_provider = 'whisper-local-gpu'
 
             for display_name, internal_name in self.provider_display_to_name.items():

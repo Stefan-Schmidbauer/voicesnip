@@ -216,8 +216,18 @@ class EvdevKeyListener:
                         if event.type == ecodes.EV_KEY:
                             self._dispatch(event)
                 except OSError:
-                    # Device disappeared (e.g. unplugged) -- stop reading it.
-                    fd_to_dev.pop(fd, None)
+                    # Device disappeared (e.g. unplugged) -- close it and stop
+                    # reading. Removing it from self._devices releases the fd
+                    # now instead of leaking it until stop(), and avoids a
+                    # redundant close there.
+                    dead = fd_to_dev.pop(fd, None)
+                    if dead is not None:
+                        try:
+                            dead.close()
+                        except OSError:
+                            pass
+                        if dead in self._devices:
+                            self._devices.remove(dead)
 
     def _dispatch(self, event):
         key = self._keycode_map.get(event.code)

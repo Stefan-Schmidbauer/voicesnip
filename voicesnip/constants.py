@@ -125,8 +125,17 @@ DEFAULT_HOTKEY = "ctrl+space"
 def is_wayland():
     """Check if running under Wayland display server.
 
-    Returns True if XDG_SESSION_TYPE is 'wayland', False otherwise.
+    Returns True if XDG_SESSION_TYPE is 'wayland' OR WAYLAND_DISPLAY is set.
+    Both signals are checked because XDG_SESSION_TYPE can be empty in sessions
+    that still run a Wayland compositor (systemd user services, su, SSH, some
+    compositors). This must match the detection in setup_wayland_input.sh so the
+    app does not fall back to the X11 path on a session the installer configured
+    for Wayland.
+
     This is used to adjust behavior for Wayland limitations
-    (global hotkeys don't work under Wayland).
+    (global hotkeys don't work under Wayland via pynput/xdotool).
     """
-    return os.environ.get('XDG_SESSION_TYPE', '').lower() == 'wayland'
+    return (
+        os.environ.get('XDG_SESSION_TYPE', '').lower() == 'wayland'
+        or bool(os.environ.get('WAYLAND_DISPLAY'))
+    )

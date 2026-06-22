@@ -851,9 +851,10 @@ class VoiceSnipGUI:
             self.update_status("Active - Waiting for hotkey...")
         except Exception as e:
             print(f"Warning: GUI widget error during startup: {e}")
-            if self.listener:
-                self.listener.stop()
-            self.is_active = False
+            # Tear down cleanly so the UI is not left wedged (Start disabled /
+            # Stop enabled while nothing is actually running). stop() reverts
+            # the buttons, stops the listener, and clears self.listener/core.
+            self.stop()
 
     def stop(self):
         """Stop VoiceSnip"""

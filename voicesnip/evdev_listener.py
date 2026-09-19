@@ -52,7 +52,10 @@ def input_group_status():
             "VoiceSnip installer to set up Wayland input permissions."
         )
 
-    if input_gid in os.getgroups():
+    # getgroups() lists only the supplementary groups. Under `sg input` the
+    # group is the process's primary one instead, which still grants access -
+    # so check both, or the quick test the installer suggests is refused.
+    if input_gid in os.getgroups() or input_gid in (os.getgid(), os.getegid()):
         return 'ok', (
             "Your user is in the 'input' group, but no keyboard devices under "
             "/dev/input were readable. Check that /dev/input/event* exist."

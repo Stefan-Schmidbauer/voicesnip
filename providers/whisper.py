@@ -177,8 +177,12 @@ class WhisperProvider(STTProvider):
             # Create file-like object from bytes
             audio_buffer = io.BytesIO(audio_bytes)
 
-            # Transcribe with language hint if provided
-            transcribe_params = {}
+            # Transcribe with language hint if provided.
+            # vad_filter drops non-speech before decoding. Without it, a
+            # recording with no speech in it is not returned empty: Whisper
+            # invents text for silence, typically a line from the subtitles it
+            # was trained on ("Konec." in Czech, "Thank you." in English).
+            transcribe_params = {'vad_filter': True}
             if language:
                 transcribe_params['language'] = language
 

@@ -101,6 +101,7 @@ KEY_NAME_MAP = {
 # Languages well-supported by Whisper
 # Alphabetically sorted by English name, Auto-Detection at the end
 LANGUAGES = [
+    ('Czech', 'cs'),
     ('Dutch', 'nl'),
     ('English', 'en'),
     ('French', 'fr'),

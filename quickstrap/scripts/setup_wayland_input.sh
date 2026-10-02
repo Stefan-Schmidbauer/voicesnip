@@ -6,6 +6,7 @@
 # under Wayland:
 #   1. Membership in group 'input'  -> read /dev/input/event* (evdev hotkey)
 #   2. udev rule for /dev/uinput    -> ydotool can inject text without root
+# It also checks that the ydotoold daemon is installed (hint only).
 #
 # Design constraints (see project memory wayland-hotkey-architecture):
 #   - Only acts under Wayland; on X11 it skips silently.
@@ -19,8 +20,8 @@
 # stdout/stderr CAPTURED (shown only after the script exits). Plain echo would
 # therefore be invisible and an interactive prompt would hang silently. So all
 # user-facing interaction goes to the controlling terminal (/dev/tty), which
-# bypasses that capture. The ydotoold daemon is not managed here -- VoiceSnip
-# starts it on demand.
+# bypasses that capture. The ydotoold daemon is only checked for here, never
+# installed or started -- VoiceSnip starts it on demand.
 
 set -u
 
@@ -47,7 +48,32 @@ if [ "${XDG_SESSION_TYPE:-}" != "wayland" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; th
     exit 0
 fi
 
-# --- 2. Idempotency: what is still missing? ---------------------------------
+# --- 2. ydotoold installed? (hint only, packages are never installed here) --
+# ydotool 0.1.x ships the daemon as a separate 'ydotoold' package; ydotool
+# >= 1.0 (e.g. Ubuntu 26.04) ships it inside 'ydotool', and no 'ydotoold'
+# package exists there. So the system requirements list only 'ydotool' and the
+# daemon is checked here by binary name. Placed before the early exit below so
+# it also runs when group and udev rule are already set up.
+if ! command -v ydotoold >/dev/null 2>&1; then
+    # madison prints a line only for real, installable versions - unlike
+    # `apt-cache show`, which also succeeds for purely virtual package names.
+    if [ -n "$(apt-cache madison ydotoold 2>/dev/null)" ]; then
+        daemon_pkg="ydotoold"
+    else
+        daemon_pkg="ydotool"
+    fi
+    say ""
+    say "================================================================"
+    say " VoiceSnip: ydotoold missing"
+    say "================================================================"
+    say "The ydotool daemon (ydotoold) is not installed. Without it VoiceSnip"
+    say "cannot paste text under Wayland. Install it with:"
+    say ""
+    say "    sudo apt install $daemon_pkg"
+    echo "ydotoold missing - install with: sudo apt install $daemon_pkg"
+fi
+
+# --- 3. Idempotency: what is still missing? ---------------------------------
 # Two distinct notions of membership:
 #   in_db      -> recorded in the group database (/etc/group) after usermod
 #   in_session -> active in THIS login session's process credentials
@@ -97,7 +123,7 @@ if ! $need_group && ! $need_rule; then
     exit 0
 fi
 
-# --- 3. Build the list of sudo commands needed ------------------------------
+# --- 4. Build the list of sudo commands needed ------------------------------
 declare -a CMDS=()
 say ""
 say "================================================================"
@@ -157,7 +183,7 @@ run_with_sudo() {
     return 0
 }
 
-# --- 4. Ask (only if we have a terminal), execute or print ------------------
+# --- 5. Ask (only if we have a terminal), execute or print ------------------
 applied=false
 if [ -n "$TTY" ]; then
     printf 'Apply these changes automatically now? [Y/n] ' >"$TTY"
@@ -171,7 +197,7 @@ else
     print_manual
 fi
 
-# --- 5. Closing notes (never fail) ------------------------------------------
+# --- 6. Closing notes (never fail) ------------------------------------------
 say ""
 if $applied; then
     say "  ✓ Wayland input setup applied."

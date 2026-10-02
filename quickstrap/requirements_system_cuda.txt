@@ -14,8 +14,10 @@ portaudio19-dev
 # X11:
 xdotool
 # Wayland (uinput-based typing + clipboard paste):
+# The ydotoold daemon is deliberately not listed: ydotool 0.1.x ships it as a
+# separate package, ydotool >= 1.0 (e.g. Ubuntu 26.04) inside 'ydotool' itself,
+# so no package name fits both. scripts/setup_wayland_input.sh checks for it.
 ydotool
-ydotoold
 wl-clipboard
 
 git

@@ -12,7 +12,7 @@ All processing happens locally on your machine - on the CPU or a GPU. No cloud, 
 - **Local Processing**: Whisper runs directly on your CPU or on your NVIDIA (CUDA) / AMD (ROCm) GPU
 - **Privacy-First**: All data stays on your device
 - **Configurable Hotkeys**: Any key combination (Ctrl+Space, Alt+R, etc.)
-- **Multi-Language**: 10 languages (German, English, French, Spanish, etc.) + Auto-Detection
+- **Multi-Language**: 11 languages (German, English, French, Spanish, etc.) + Auto-Detection
 - **Dark/Light Mode**: Switch between dark and light themes
 - **Adjustable Font Size**: A-/A+ buttons to customize text size
 

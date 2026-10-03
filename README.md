@@ -64,6 +64,16 @@ VoiceSnip provides the same workflow on both X11 and Wayland — hold your hotke
 anywhere, speak, release, and the text appears at your cursor. The display
 server is detected at runtime; the difference is purely internal.
 
+On Wayland the text is pasted with `ydotool`. Both `ydotool` 0.1.x and 1.x are
+supported: they disagree about where the daemon's socket lives and about the
+syntax of `ydotool key`, so both are tried. Two environment variables adjust
+the paste if needed:
+
+| Variable                   | Purpose                                              |
+| -------------------------- | ---------------------------------------------------- |
+| `YDOTOOL_SOCKET`           | Path to the `ydotoold` socket, when it is not in the default place |
+| `VOICESNIP_PASTE_SHORTCUT` | Shortcut used to paste, e.g. `ctrl+shift+v` for terminals |
+
 ### X11
 
 - **Global hotkey** via pynput

@@ -222,8 +222,10 @@ def _send_paste_shortcut(socket_path):
             env=_ydotool_env(socket_path),
         )
         return True
-    except subprocess.CalledProcessError:
-        print(f"ydotool rejected the paste shortcut '{PASTE_SHORTCUT}'")
+    except subprocess.CalledProcessError as e:
+        # ydotool accepts any key argument, so a non-zero exit means it could
+        # not reach the daemon or /dev/uinput, not that the shortcut is wrong.
+        print(f"Error pasting text (ydotoold running? /dev/uinput access?): {e}")
         return False
 
 

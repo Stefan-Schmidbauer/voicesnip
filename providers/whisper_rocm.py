@@ -24,12 +24,13 @@ MODEL_MAP = {
 
 # Known GFX version overrides for GPU architectures not in official PyTorch ROCm builds.
 # Maps actual gfx version to the closest supported version for HSA_OVERRIDE_GFX_VERSION.
-# Official PyTorch ROCm 6.2 supports: gfx900, gfx906, gfx908, gfx90a, gfx942, gfx1030, gfx1100
+# Overrides target gfx1030/gfx1100, which every official PyTorch ROCm build ships kernels for.
 GFX_OVERRIDE_MAP = {
     "gfx1150": "11.0.0",  # RDNA 3.5 Strix Point -> gfx1100
     "gfx1151": "11.0.0",  # RDNA 3.5 Strix Point -> gfx1100
     "gfx1101": "11.0.0",  # RDNA 3 (RX 7800/7700) -> gfx1100
     "gfx1102": "11.0.0",  # RDNA 3 (RX 7600) -> gfx1100
+    "gfx1103": "11.0.0",  # RDNA 3 iGPU (Phoenix) -> gfx1100
     "gfx1031": "10.3.0",  # RDNA 2 (RX 6700) -> gfx1030
     "gfx1032": "10.3.0",  # RDNA 2 (RX 6600) -> gfx1030
     "gfx1035": "10.3.0",  # RDNA 2 iGPU -> gfx1030
@@ -127,7 +128,7 @@ class WhisperROCmProvider(STTProvider):
             if not torch.cuda.is_available():
                 raise ValueError(
                     "ROCm not available. Ensure PyTorch ROCm is installed:\n"
-                    "pip install torch torchaudio --index-url https://download.pytorch.org/whl/rocm6.2"
+                    "pip install torch --index-url https://download.pytorch.org/whl/rocm6.4"
                 )
 
             gpu_name = torch.cuda.get_device_name(0)

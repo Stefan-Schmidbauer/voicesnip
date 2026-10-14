@@ -24,8 +24,9 @@ fi
 echo "Using pip: $PIP"
 echo ""
 
-# Install PyTorch with ROCm 6.2 support
-$PIP install torch torchaudio --index-url https://download.pytorch.org/whl/rocm6.2
+# Install PyTorch with ROCm 6.4 support (rocm6.2 has no wheels beyond
+# Python 3.12, Ubuntu 26.04 ships 3.14). torchaudio is not used by VoiceSnip.
+$PIP install torch --index-url https://download.pytorch.org/whl/rocm6.4
 
 if [ $? -eq 0 ]; then
     echo ""
@@ -36,7 +37,7 @@ else
     echo "✗ Error: Failed to install PyTorch ROCm"
     echo ""
     echo "You can install it manually:"
-    echo "  pip install torch torchaudio --index-url https://download.pytorch.org/whl/rocm6.2"
+    echo "  pip install torch --index-url https://download.pytorch.org/whl/rocm6.4"
     echo ""
     exit 1
 fi

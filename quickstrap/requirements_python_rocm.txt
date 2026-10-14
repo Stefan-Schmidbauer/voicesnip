@@ -16,6 +16,6 @@ faster-whisper>=1.0.0
 
 # Whisper ROCm GPU (transformers + PyTorch ROCm)
 # NOTE: PyTorch ROCm is installed via post-install script from:
-# https://download.pytorch.org/whl/rocm6.2
+# https://download.pytorch.org/whl/rocm6.4
 transformers>=4.36.0
 accelerate>=0.26.0

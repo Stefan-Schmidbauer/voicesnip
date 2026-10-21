@@ -1,0 +1,19 @@
+# VoiceSnip Python Requirements - Vulkan Profile
+# Whisper local on any GPU with a Vulkan driver (AMD/Intel iGPU, NVIDIA)
+
+# Base requirements
+numpy>=1.20.0
+sounddevice>=0.4.6
+pynput>=1.7.6
+evdev>=1.6.0
+requests>=2.31.0
+python-dotenv>=1.0.0
+pillow>=10.0.0
+customtkinter>=5.2.0
+
+# Whisper CPU (faster-whisper / CTranslate2) - CPU provider as fallback
+faster-whisper>=1.0.0
+
+# Whisper Vulkan GPU (whisper.cpp via pywhispercpp)
+# NOTE: pywhispercpp is built from source with GGML_VULKAN=1 by the
+# post-install script. Listing it here would install the CPU-only wheel.

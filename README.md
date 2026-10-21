@@ -9,7 +9,7 @@ All processing happens locally on your machine - on the CPU or a GPU. No cloud, 
 ## Features
 
 - **Push-to-Talk**: Hold hotkey to record, release to transcribe
-- **Local Processing**: Whisper runs directly on your CPU or on your NVIDIA (CUDA) / AMD (ROCm) GPU
+- **Local Processing**: Whisper runs directly on your CPU or on your GPU - NVIDIA (CUDA), AMD (ROCm) or any GPU with a Vulkan driver, including AMD/Intel integrated graphics
 - **Privacy-First**: All data stays on your device
 - **Configurable Hotkeys**: Any key combination (Ctrl+Space, Alt+R, etc.)
 - **Multi-Language**: 11 languages (German, English, French, Spanish, etc.) + Auto-Detection
@@ -20,7 +20,7 @@ All processing happens locally on your machine - on the CPU or a GPU. No cloud, 
 
 - Linux (X11 or Wayland)
 - Python 3.8+
-- Any CPU, **or** NVIDIA GPU with CUDA, **or** AMD GPU with ROCm
+- Any CPU, **or** NVIDIA GPU with CUDA, **or** AMD GPU with ROCm, **or** any GPU with a Vulkan driver (e.g. AMD/Intel iGPU)
 - Debian/Ubuntu for automated system package install
 
 ## Installation
@@ -33,17 +33,22 @@ cd voicesnip
 
 The installer will ask you to choose a profile:
 
-| Profile  | Description                                              |
-| -------- | -------------------------------------------------------- |
-| **cuda** | Whisper with NVIDIA GPU acceleration (requires CUDA)     |
-| **rocm** | Whisper with AMD GPU acceleration (requires ROCm, Linux) |
-| **cpu**  | Whisper on the CPU - no GPU required, works anywhere     |
+| Profile    | Description                                                                 |
+| ---------- | --------------------------------------------------------------------------- |
+| **cuda**   | Whisper with NVIDIA GPU acceleration (requires CUDA)                        |
+| **rocm**   | Whisper with AMD GPU acceleration (requires ROCm, Linux)                    |
+| **vulkan** | Whisper via whisper.cpp on any Vulkan GPU - recommended for AMD/Intel iGPUs |
+| **cpu**    | Whisper on the CPU - no GPU required, works anywhere                        |
 
 ### GPU Setup
 
 **NVIDIA (CUDA):** Install [NVIDIA drivers](https://developer.nvidia.com/cuda-downloads). CUDA libraries are installed automatically by the installer.
 
-**AMD (ROCm):** Install [ROCm drivers](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/) first. PyTorch ROCm is installed automatically by the installer.
+**AMD (ROCm):** Install [ROCm drivers](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/) first. PyTorch ROCm is installed automatically by the installer. For integrated AMD graphics use the `vulkan` profile instead - ROCm is not reliable on iGPUs (the Radeon 780M hangs under load).
+
+**Vulkan (AMD/Intel iGPU, any GPU):** Uses [whisper.cpp](https://github.com/ggml-org/whisper.cpp) through the GPU's Vulkan driver (Mesa RADV for AMD, ANV for Intel). No ROCm or CUDA needed. The installer checks for a Vulkan GPU and compiles whisper.cpp with Vulkan support, which takes a few minutes. As a reference, `turbo` transcribes a 10-second dictation in about 0.9 s on a Radeon 780M. Tested on AMD (Radeon 780M) and NVIDIA; Intel iGPUs should work through Mesa's ANV driver but have not been tested yet.
+
+With more than one GPU, the first one is used. The installer lists the Vulkan GPUs with their index; select another one with `VOICESNIP_VULKAN_DEVICE`, e.g. `VOICESNIP_VULKAN_DEVICE=1 ./start.sh`, or set it permanently in `.env` (see `.env.example`).
 
 **CPU:** No extra setup - the `cpu` profile runs on any machine without GPU drivers.
 
@@ -114,13 +119,20 @@ then the hotkey works system-wide just like on X11.
 | turbo    | 1.6 GB | 2.2 GB   | **Recommended for GPU** |
 | large-v3 | 3.1 GB | 3.9 GB   | Best quality            |
 
-\* VRAM on the GPU profiles, system RAM on the CPU profile.
+\* VRAM on the GPU profiles, system RAM on the CPU profile. An integrated GPU
+has no memory of its own: it uses system RAM (a fixed reservation set in the
+BIOS plus up to half of the RAM on demand), so every model fits - `turbo` on
+the `vulkan` profile takes about 0.9 GB.
 
 On the **CPU** profile the smaller models (`small`, `base`) give the best
 responsiveness; `turbo` and `large-v3` also work but are noticeably slower
 than on a GPU.
 
-Models download automatically on first use to `~/.cache/huggingface/`.
+Models download automatically on first use to `~/.cache/huggingface/`
+(`vulkan` profile: `~/.local/share/pywhispercpp/models/`). The `vulkan` profile
+uses 5-bit quantized versions of `turbo` and `large-v3`, which need about half
+the memory listed above (for `turbo`, the transcript matched the full-precision
+model in our tests).
 
 ## Configuration
 
@@ -136,7 +148,7 @@ Settings are saved automatically in the project directory:
 
 MIT License - see LICENSE file.
 
-**Third-Party:** OpenAI Whisper (MIT), NVIDIA CUDA, AMD ROCm
+**Third-Party:** OpenAI Whisper (MIT), whisper.cpp (MIT), pywhispercpp (MIT), NVIDIA CUDA, AMD ROCm
 
 ## Author
 

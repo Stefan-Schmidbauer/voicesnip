@@ -1,7 +1,7 @@
 """
 Provider registry for Speech-to-Text providers.
 
-Local-execution only: CPU, CUDA and ROCm backends.
+Local-execution only: CPU, CUDA, ROCm and Vulkan backends.
 
 To add a new provider:
 1. Create a new file in this directory (e.g., openai.py)
@@ -14,6 +14,7 @@ from typing import List, Dict, Any, Optional
 from .base import STTProvider
 from .whisper import WhisperProvider
 from .whisper_rocm import WhisperROCmProvider
+from .whisper_vulkan import WhisperVulkanProvider
 
 
 # Self-describing provider registry (local execution only)
@@ -31,6 +32,13 @@ PROVIDER_REGISTRY: List[Dict[str, Any]] = [
         'display_name': 'Whisper Local GPU (Free, ROCm)',
         'config_key': 'whisper',
         'features': ['whisper', 'rocm'],
+    },
+    {
+        'key': 'whisper-local-vulkan',
+        'class': WhisperVulkanProvider,
+        'display_name': 'Whisper Local GPU (Free, Vulkan - AMD/Intel iGPU)',
+        'config_key': 'whisper',
+        'features': ['whisper', 'vulkan'],
     },
     {
         'key': 'whisper-local-cpu',
@@ -106,6 +114,7 @@ __all__ = [
     'STTProvider',
     'WhisperProvider',
     'WhisperROCmProvider',
+    'WhisperVulkanProvider',
     'PROVIDER_REGISTRY',
     'get_providers_for_features',
     'get_registry_entry',

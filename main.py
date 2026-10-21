@@ -10,10 +10,11 @@ Speech-to-Text Providers:
 - Whisper Local CPU: Local processing using Faster Whisper on the CPU (no GPU)
 - Whisper Local GPU (CUDA): Local processing using Faster Whisper with NVIDIA GPU
 - Whisper Local GPU (ROCm): Local processing using Whisper with AMD GPU
+- Whisper Local GPU (Vulkan): Local processing using whisper.cpp on any Vulkan GPU (AMD/Intel iGPU)
 
 Features:
 - Configurable hotkey (e.g., Ctrl+Space, Alt+R, Ctrl+Shift+V)
-- Local-only STT with CPU, CUDA and ROCm backends
+- Local-only STT with CPU, CUDA, ROCm and Vulkan backends
 - Automatic terminal detection for better paste support
 - Settings persistence
 

@@ -1,7 +1,7 @@
 """
 VoiceSnip - Push-to-Talk Speech-to-Text
 
-Linux-only local-execution STT client with CPU, CUDA and ROCm backends.
+Linux-only local-execution STT client with CPU, CUDA, ROCm and Vulkan backends.
 """
 
 __version__ = "3.4.1"

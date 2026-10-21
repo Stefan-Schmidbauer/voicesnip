@@ -7,12 +7,11 @@ Arc), where CTranslate2/faster-whisper has no backend and ROCm is unreliable.
 """
 
 import os
-import io
 import sys
-import wave
 from pathlib import Path
 from typing import Optional, List
 from .base import STTProvider
+from .audio import wav_to_whisper_input
 
 # Map short model names to whisper.cpp ggml model names.
 # The large models use q5_0 quantization: half the memory (an iGPU shares
@@ -30,8 +29,6 @@ MODEL_MAP = {
 # Silero VAD model for whisper.cpp (~0.9 MB), downloaded on first use
 VAD_MODEL_NAME = "ggml-silero-v6.2.0.bin"
 VAD_MODEL_URL = f"https://huggingface.co/ggml-org/whisper-vad/resolve/main/{VAD_MODEL_NAME}"
-
-WHISPER_SAMPLE_RATE = 16000
 
 
 GGML_LOG_LEVEL_WARN = 3
@@ -191,25 +188,8 @@ class WhisperVulkanProvider(STTProvider):
             Transcribed text or None on error
         """
         try:
-            import numpy as np
-
-            # Parse WAV bytes to numpy array
-            wav_buffer = io.BytesIO(audio_bytes)
-            with wave.open(wav_buffer, 'rb') as wav_file:
-                sample_rate = wav_file.getframerate()
-                n_frames = wav_file.getnframes()
-                audio_data = wav_file.readframes(n_frames)
-                audio_np = np.frombuffer(audio_data, dtype=np.int16).astype(np.float32) / 32768.0
-
-            # whisper.cpp expects 16 kHz and does not resample; the recorder
-            # falls back to 44.1/48 kHz on devices that reject 16 kHz.
-            if sample_rate != WHISPER_SAMPLE_RATE and len(audio_np) > 0:
-                n_out = int(len(audio_np) * WHISPER_SAMPLE_RATE / sample_rate)
-                audio_np = np.interp(
-                    np.linspace(0, len(audio_np) - 1, n_out),
-                    np.arange(len(audio_np)),
-                    audio_np,
-                ).astype(np.float32)
+            # whisper.cpp expects 16 kHz and does not resample itself
+            audio_np = wav_to_whisper_input(audio_bytes)
 
             # pywhispercpp maps "" to auto-detect ("auto" works too but logs
             # "unknown language" on every call)

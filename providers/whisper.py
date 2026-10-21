@@ -6,9 +6,9 @@ No API key required, works offline, free to use.
 """
 
 import os
-import io
 from typing import Optional, List
 from .base import STTProvider
+from .audio import wav_to_whisper_input
 
 
 class WhisperProvider(STTProvider):
@@ -174,8 +174,8 @@ class WhisperProvider(STTProvider):
             Transcribed text or None on error
         """
         try:
-            # Create file-like object from bytes
-            audio_buffer = io.BytesIO(audio_bytes)
+            # Decoded here rather than by faster-whisper (see wav_to_whisper_input)
+            audio = wav_to_whisper_input(audio_bytes)
 
             # Transcribe with language hint if provided.
             # vad_filter drops non-speech before decoding. Without it, a
@@ -187,7 +187,7 @@ class WhisperProvider(STTProvider):
                 transcribe_params['language'] = language
 
             segments, info = self.model.transcribe(
-                audio_buffer,
+                audio,
                 **transcribe_params
             )
 

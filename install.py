@@ -578,6 +578,11 @@ def validate_profile_files(profile: Dict) -> List[str]:
 def run_bash_script(script_path: str, env: Optional[Dict] = None) -> subprocess.CompletedProcess:
     """Run a bash script.
 
+    stdin/stdout/stderr are inherited from the parent process rather than
+    captured, so a script can prompt interactively (e.g. asking for a secret)
+    without the prompt being silently buffered until the script exits. A
+    script that never prints anything behaves exactly as before.
+
     Args:
         script_path: Path to the bash script to run
         env: Optional environment variables for the script
@@ -585,12 +590,7 @@ def run_bash_script(script_path: str, env: Optional[Dict] = None) -> subprocess.
     Returns:
         CompletedProcess result
     """
-    return subprocess.run(
-        ['bash', script_path],
-        env=env,
-        capture_output=True,
-        text=True
-    )
+    return subprocess.run(['bash', script_path], env=env)
 
 
 def build_script_env(venv_path: Path, app_name: str) -> Dict[str, str]:
@@ -672,12 +672,6 @@ def run_lifecycle_scripts(scripts: str, venv_path: Path, app_name: str,
 
         result = run_bash_script(script_path, env=env)
 
-        # Display output
-        if result.stdout:
-            print(result.stdout)
-        if result.stderr:
-            print(result.stderr, file=sys.stderr)
-
         if result.returncode != 0:
             print_error(f"Script failed: {script_path}")
             failed_scripts.append(script_path)
@@ -714,12 +708,6 @@ def run_pre_install_scripts(scripts: str, profile_name: str) -> bool:
         print_info(f"Running pre-install script: {script_path}")
 
         result = run_bash_script(script_path)
-
-        # Display output
-        if result.stdout:
-            print(result.stdout)
-        if result.stderr:
-            print(result.stderr, file=sys.stderr)
 
         if result.returncode != 0:
             print_error(f"Pre-install script failed: {script_path}")

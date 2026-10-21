@@ -16,12 +16,13 @@
 #     the commands for the user to run manually.
 #   - Never hard-fails: always exits 0 so it cannot abort the installation.
 #
-# NOTE on I/O: the quickstrap installer runs post-install scripts with their
-# stdout/stderr CAPTURED (shown only after the script exits). Plain echo would
-# therefore be invisible and an interactive prompt would hang silently. So all
-# user-facing interaction goes to the controlling terminal (/dev/tty), which
-# bypasses that capture. The ydotoold daemon is only checked for here, never
-# installed or started -- VoiceSnip starts it on demand.
+# NOTE on I/O: quickstrap engines before 2026-06 ran post-install scripts with
+# their stdout/stderr CAPTURED (shown only after the script exits), where plain
+# echo was invisible and an interactive prompt hung silently. Current engines
+# pass the terminal through. All user-facing interaction goes to the
+# controlling terminal (/dev/tty), which works with both. The ydotoold daemon
+# is only checked for here, never installed or started -- VoiceSnip starts it
+# on demand.
 
 set -u
 
@@ -31,7 +32,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RULES_SRC="${SCRIPT_DIR}/${RULES_NAME}"
 TARGET_USER="${SUDO_USER:-$(id -un)}"
 
-# --- Terminal I/O (bypasses the installer's output capture) -----------------
+# --- Terminal I/O (also works when the installer captures output) ----------
 if { true >/dev/tty; } 2>/dev/null; then
     TTY=/dev/tty
 else
@@ -163,7 +164,7 @@ run_with_sudo() {
     for c in "${CMDS[@]}"; do
         say "    -> sudo $c"
         # Run sudo against the terminal so its password prompt is visible and
-        # can read input even though the installer captured our stdout/stderr.
+        # can read input even if the installer captures our stdout/stderr.
         if [ -n "$TTY" ]; then
             # shellcheck disable=SC2086
             if ! eval "sudo $c" <"$TTY" >"$TTY" 2>&1; then

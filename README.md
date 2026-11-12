@@ -4,7 +4,7 @@ Local push-to-talk speech-to-text for Linux. Hold a hotkey, speak, release - tex
 
 All processing happens locally on your machine - on the CPU or a GPU. No cloud, no server, no data leaves your machine.
 
-![VoiceSnip GUI](voicesnip.png)
+![VoiceSnip GUI](assets/screenshots/voicesnip.png)
 
 ## Features
 

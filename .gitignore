@@ -65,8 +65,8 @@ docs/
 # Local workflow notes
 DEV-WORKFLOW.md
 
-# Blog assets (drafts, images, article files)
-blog/
+# Articles, LinkedIn/website images, videos — local only, never committed
+marketing/
 fix-ssl-cert.sh
 
 # Wayland hotkey proof-of-concept (local scratch, not for release)
